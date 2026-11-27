@@ -47,6 +47,8 @@ export function Cursor({ enabled }: { enabled: boolean }) {
       const word = target instanceof HTMLElement ? target.dataset.cursor : undefined
       label.textContent = word ?? ''
       ring.dataset.state = word ? 'label' : target ? 'hover' : ''
+      // on light (lime) buttons the bubble turns dark so it stands out
+      ring.dataset.tone = target instanceof HTMLElement ? (target.dataset.cursorTone ?? '') : ''
     }
     const leave = () => {
       shown = false
