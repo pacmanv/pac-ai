@@ -2,7 +2,7 @@ import { useRef, useState, type FormEvent } from 'react'
 import { usePageFx } from '../fx/usePageFx'
 import { fx } from '../fx/motion'
 import { Roll } from '../site/Chrome'
-import { CONTACT, CONTACT_EMAIL, YEAR } from '../site/content'
+import { CONTACT, CONTACT_EMAIL, INSTAGRAM, YEAR } from '../site/content'
 
 /**
  * Contact: a two-field form that opens the visitor's mail app with the message
@@ -18,7 +18,7 @@ export default function Contact({ reduced, delay }: { reduced: boolean; delay: n
   const submit = (e: FormEvent) => {
     e.preventDefault()
     const subject = `New project${name ? ` from ${name}` : ''}`
-    const body = `${idea}\n\n— ${name}`
+    const body = `${idea}\n\n${name}`
     fx.field?.pulse(1.2)
     window.location.href = `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
   }
@@ -65,11 +65,15 @@ export default function Contact({ reduced, delay }: { reduced: boolean; delay: n
           <a className="contact__email" href={`mailto:${CONTACT_EMAIL}`} data-cursor="Write">
             {CONTACT_EMAIL}
           </a>
+          <a className="contact__social" href={INSTAGRAM.url} target="_blank" rel="noopener noreferrer" data-cursor="Follow">
+            Instagram {INSTAGRAM.handle} <span aria-hidden="true">↗</span>
+            <span className="sr-only"> (opens in a new tab)</span>
+          </a>
         </div>
       </section>
 
       <footer className="ftr ftr--slim">
-        <p className="ftr__meta">© {YEAR} Pac Ai — envision and build.</p>
+        <p className="ftr__meta">© {YEAR} Pac Ai. You envision, we build.</p>
       </footer>
     </main>
   )

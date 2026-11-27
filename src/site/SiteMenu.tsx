@@ -1,6 +1,6 @@
 import { useEffect, useRef, type CSSProperties, type RefObject } from 'react'
 import { lockScroll } from '../fx/motion'
-import { CONTACT_EMAIL } from './content'
+import { CONTACT_EMAIL, INSTAGRAM } from './content'
 import { PAGES, linkHandler, type PagePath } from './routes'
 
 interface SiteMenuProps {
@@ -95,9 +95,13 @@ export function SiteMenu({ isOpen, current, onClose, onNavigate, returnFocusRef 
         </ol>
       </nav>
 
-      <a className="menu__foot" href={`mailto:${CONTACT_EMAIL}`}>
-        {CONTACT_EMAIL}
-      </a>
+      <div className="menu__foot">
+        <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>
+        <a href={INSTAGRAM.url} target="_blank" rel="noopener noreferrer">
+          Instagram {INSTAGRAM.handle}
+          <span className="sr-only"> (opens in a new tab)</span>
+        </a>
+      </div>
     </div>
   )
 }

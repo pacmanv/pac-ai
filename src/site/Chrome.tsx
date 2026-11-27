@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode, type Ref } from 'react'
 import { fx } from '../fx/motion'
-import { CTA, YEAR } from './content'
+import { CONTACT_EMAIL, CTA, INSTAGRAM, YEAR } from './content'
 import { PAGES, linkHandler, type PagePath } from './routes'
 
 type Navigate = (to: PagePath) => void
@@ -145,8 +145,15 @@ export function Finale({ onNavigate }: { onNavigate: Navigate }) {
               <Roll>{p.title}</Roll>
             </NavLink>
           ))}
+          <a className="ftr__social" href={INSTAGRAM.url} target="_blank" rel="noopener noreferrer">
+            <Roll>{`Instagram ${INSTAGRAM.handle}`}</Roll>
+            <span className="sr-only"> (opens in a new tab)</span>
+          </a>
+          <a className="ftr__social" href={`mailto:${CONTACT_EMAIL}`}>
+            <Roll>{CONTACT_EMAIL}</Roll>
+          </a>
         </nav>
-        <p className="ftr__meta">© {YEAR} Pac Ai — envision and build.</p>
+        <p className="ftr__meta">© {YEAR} Pac Ai. You envision, we build.</p>
         <button type="button" className="ftr__top" onClick={() => (fx.lenis ? fx.lenis.scrollTo(0) : window.scrollTo({ top: 0 }))}>
           <Roll>Back to top ↑</Roll>
         </button>

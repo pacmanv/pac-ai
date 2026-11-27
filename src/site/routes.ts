@@ -15,7 +15,7 @@ export const PAGES: readonly PageInfo[] = [
   { path: '/contact', title: 'Contact', index: 3 },
 ]
 
-const HOME_TITLE = 'Pac Ai — Envision and Build'
+const HOME_TITLE = 'Pac Ai | You Envision, We Build'
 
 /** Map any pathname onto a known page; unknown paths fall back to the landing page. */
 export function toPagePath(pathname: string): PagePath {
@@ -31,7 +31,7 @@ export function pageFor(path: PagePath): PageInfo | undefined {
 
 export function titleFor(path: PagePath): string {
   const page = pageFor(path)
-  return page ? `${page.title} — Pac Ai` : HOME_TITLE
+  return page ? `${page.title} | Pac Ai` : HOME_TITLE
 }
 
 /**
