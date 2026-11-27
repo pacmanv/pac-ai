@@ -1496,13 +1496,8 @@ html.has-cursor * {
   .about__aside {
     position: static;
   }
-  .about__roles {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0 0.4em;
-  }
   .about__roles li {
-    font-size: clamp(1.8rem, 9vw, 2.6rem);
+    font-size: clamp(1.6rem, 8vw, 2.4rem);
   }
   .contact {
     grid-template-columns: 1fr;

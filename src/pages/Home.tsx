@@ -189,7 +189,7 @@ export default function Home({ onNavigate, reduced, introDelay }: PageProps) {
               {HERO.lines[0]}
             </span>
             <span className="hero__line hero__line--accent" data-split="now">
-              We <em>build.</em>
+              {HERO.lines[1].split(' ')[0]} <em>{HERO.lines[1].split(' ').slice(1).join(' ')}</em>
             </span>
           </h1>
           <div className="hero__foot">

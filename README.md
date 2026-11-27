@@ -1,4 +1,4 @@
-# Pac AI: you envision, we build
+# Pac AI: imagine more, build smarter
 
 Portfolio site for Pac AI, live at **https://pac-ai-phi.vercel.app**.
 
