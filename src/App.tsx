@@ -1,30 +1,37 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import gsap from 'gsap'
-import CondensationHero from './CondensationHero'
-import GlassPage from './site/GlassPage'
-import PortfolioProjects from './site/PortfolioProjects'
-import { PROJECTS } from './site/projects'
-import { MenuButton } from './site/MenuButton'
+import { Cursor } from './fx/Cursor'
+import { ShaderField } from './fx/ShaderField'
+import { fx, lockScroll, scrollToTop, startSmoothScroll } from './fx/motion'
+import Home from './pages/Home'
+import Work from './pages/Work'
+import About from './pages/About'
+import Contact from './pages/Contact'
+import { Header, MenuButton, ScrollProgress } from './site/Chrome'
 import { SiteMenu } from './site/SiteMenu'
-import { pageFor, titleFor, toPagePath, type PagePath } from './site/routes'
+import { titleFor, toPagePath, type PagePath } from './site/routes'
 import { usePrefersReducedMotion } from './lib/useReducedMotion'
 
-/** seconds: the glass fogs over, then a squeegee clears it to the next page */
-const FOG_IN = 0.55
-const CLEAR = 0.95
-const BLADE_LAG = 0.08
+/** seconds the intro loader holds the first page */
+const INTRO = 1.6
+/** seconds after a page swap before its entrance plays (the wipe is lifting) */
+const ENTER = 0.35
+
+const LABELS: Record<PagePath, string> = { '/': 'Home', '/portfolio': 'Work', '/about': 'About', '/contact': 'Contact' }
 
 /**
- * The site shell: a tiny history router over four pages, the ⋯ menu, and the
- * fog-and-squeegee transition between pages.
+ * The site shell: a tiny history router over four pages, the WebGL backdrop,
+ * smooth scrolling, the custom cursor, the intro loader and the wipe between pages.
  */
 export default function App() {
   const reduced = usePrefersReducedMotion()
   const [path, setPath] = useState<PagePath>(() => toPagePath(window.location.pathname))
   const [isMenuOpen, setMenuOpen] = useState(false)
+  const [delay, setDelay] = useState(() => (reduced ? 0 : INTRO))
   const menuButtonRef = useRef<HTMLButtonElement>(null)
-  const veilRef = useRef<HTMLDivElement>(null)
-  const bladeRef = useRef<HTMLDivElement>(null)
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const loaderRef = useRef<HTMLDivElement>(null)
+  const wipeRef = useRef<HTMLDivElement>(null)
   const timelineRef = useRef<gsap.core.Timeline | null>(null)
 
   useEffect(() => {
@@ -37,35 +44,110 @@ export default function App() {
     document.title = titleFor(path)
   }, [path])
 
+  // backdrop: the shader field, steered by pointer and scroll, dimming below the fold
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const field = ShaderField.create(canvas, !reduced)
+    fx.field = field
+    if (!field) return
+    field.play()
+    const onMove = (e: PointerEvent) => field.pointer(e.clientX, e.clientY)
+    const onDown = () => field.pulse(0.45)
+    const onScroll = () => {
+      const v = window.scrollY / window.innerHeight
+      field.setScroll(v)
+      canvas.style.opacity = String(1 - Math.min(0.5, v * 0.5))
+    }
+    window.addEventListener('pointermove', onMove, { passive: true })
+    window.addEventListener('pointerdown', onDown)
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => {
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerdown', onDown)
+      window.removeEventListener('scroll', onScroll)
+      field.destroy()
+      fx.field = null
+    }
+  }, [reduced])
+
+  // smooth scrolling (skipped for reduced motion)
+  useEffect(() => {
+    if (reduced) return
+    return startSmoothScroll()
+  }, [reduced])
+
+  // intro loader: a count to 100, then the curtain lifts
+  useLayoutEffect(() => {
+    const loader = loaderRef.current
+    if (!loader) return
+    if (reduced) {
+      loader.remove()
+      return
+    }
+    lockScroll(true)
+    const count = loader.querySelector('.loader__count')
+    const n = { v: 0 }
+    const tl = gsap
+      .timeline({
+        onComplete: () => {
+          loader.remove()
+          lockScroll(false)
+        },
+      })
+      .from(loader.querySelectorAll('.loader__mask > span'), {
+        yPercent: 110,
+        duration: 0.7,
+        ease: 'expo.out',
+        stagger: 0.04,
+      })
+      .to(n, {
+        v: 100,
+        duration: INTRO - 0.5,
+        ease: 'power2.inOut',
+        onUpdate: () => {
+          if (count) count.textContent = String(Math.round(n.v)).padStart(3, '0')
+        },
+      }, 0)
+      .to(loader.querySelector('.loader__bar i'), { scaleX: 1, duration: INTRO - 0.5, ease: 'power2.inOut' }, 0)
+      .add(() => fx.field?.pulse(1.2), INTRO - 0.5)
+      .to(loader, { yPercent: -100, duration: 0.9, ease: 'expo.inOut' }, INTRO - 0.45)
+    return () => {
+      tl.kill()
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
   const openMenu = useCallback(() => setMenuOpen(true), [])
   const closeMenu = useCallback(() => setMenuOpen(false), [])
 
-  const swap = useCallback((to: PagePath) => {
+  const swap = useCallback((to: PagePath, enterDelay: number) => {
+    setDelay(enterDelay)
     setPath(to)
     setMenuOpen(false)
-    window.scrollTo(0, 0)
+    scrollToTop()
   }, [])
 
   const transition = useCallback(
     (to: PagePath) => {
-      const veil = veilRef.current
-      const blade = bladeRef.current
-      if (reduced || !veil || !blade) {
-        swap(to)
+      const wipe = wipeRef.current
+      if (reduced || !wipe) {
+        swap(to, 0)
         return
       }
       timelineRef.current?.kill()
-      const h = window.innerHeight
+      const label = wipe.querySelector('.wipe__label')
+      if (label) label.textContent = LABELS[to]
+      fx.field?.pulse(1)
       timelineRef.current = gsap
-        .timeline({ onComplete: () => gsap.set(veil, { visibility: 'hidden', pointerEvents: 'none' }) })
-        .set(veil, { visibility: 'visible', pointerEvents: 'auto', opacity: 0, clipPath: 'inset(0% 0% 0% 0%)' })
-        .set(blade, { y: 0, visibility: 'hidden' })
-        .to(veil, { opacity: 1, duration: FOG_IN, ease: 'power2.out' })
-        .add(() => swap(to))
-        .set(blade, { visibility: 'visible' }, `+=${BLADE_LAG}`)
-        .to(veil, { clipPath: 'inset(100% 0% 0% 0%)', duration: CLEAR, ease: 'power2.inOut' }, '<')
-        .to(blade, { y: h, duration: CLEAR, ease: 'power2.inOut' }, '<')
-        .set(blade, { visibility: 'hidden' })
+        .timeline()
+        .set(wipe, { visibility: 'visible', yPercent: 100 })
+        .set(label, { yPercent: 120 })
+        .to(wipe, { yPercent: 0, duration: 0.6, ease: 'expo.inOut' })
+        .to(label, { yPercent: 0, duration: 0.5, ease: 'expo.out' }, '-=0.25')
+        .add(() => swap(to, ENTER))
+        .to(label, { yPercent: -120, duration: 0.4, ease: 'expo.in' }, '+=0.1')
+        .to(wipe, { yPercent: -100, duration: 0.7, ease: 'expo.inOut' }, '-=0.15')
+        .set(wipe, { visibility: 'hidden' })
     },
     [reduced, swap],
   )
@@ -74,6 +156,7 @@ export default function App() {
     (to: PagePath) => {
       if (to === path) {
         setMenuOpen(false)
+        scrollToTop(false)
         return
       }
       window.history.pushState(null, '', to)
@@ -88,42 +171,59 @@ export default function App() {
     return () => window.removeEventListener('popstate', onPop)
   }, [transition])
 
-  useEffect(() => () => {
-    timelineRef.current?.kill()
-  }, [])
+  useEffect(
+    () => () => {
+      timelineRef.current?.kill()
+    },
+    [],
+  )
 
-  const menu = <MenuButton ref={menuButtonRef} isOpen={isMenuOpen} onOpen={openMenu} />
-  const page = pageFor(path)
-
+  const pageProps = { reduced, delay }
   return (
     <>
-      {page ? (
-        <GlassPage
-          key={page.path}
-          page={page}
-          menu={menu}
-          onNavigate={navigate}
-          contentLabel={page.path === '/portfolio' ? `${PROJECTS.length} projects` : undefined}
-        >
-          {page.path === '/portfolio' && <PortfolioProjects />}
-        </GlassPage>
-      ) : (
-        <CondensationHero menu={menu} onNavigate={navigate} />
-      )}
-
-      <SiteMenu
-        isOpen={isMenuOpen}
+      <canvas ref={canvasRef} className="backdrop" aria-hidden="true" />
+      <div className="grain" aria-hidden="true" />
+      <a className="skip" href="#main">
+        Skip to content
+      </a>
+      <ScrollProgress />
+      <Header
         current={path}
-        onClose={closeMenu}
         onNavigate={navigate}
-        returnFocusRef={menuButtonRef}
+        menuButton={<MenuButton ref={menuButtonRef} isOpen={isMenuOpen} onOpen={openMenu} />}
       />
 
-      <div ref={veilRef} className="site-veil" aria-hidden="true" />
-      <div ref={bladeRef} className="cd-blade site-blade" aria-hidden="true">
-        <i className="cd-blade__handle" />
-        <i className="cd-blade__bar" />
+      {path === '/' && <Home key="/" onNavigate={navigate} reduced={reduced} introDelay={delay} />}
+      {path === '/portfolio' && <Work key="/portfolio" onNavigate={navigate} {...pageProps} />}
+      {path === '/about' && <About key="/about" onNavigate={navigate} {...pageProps} />}
+      {path === '/contact' && <Contact key="/contact" {...pageProps} />}
+
+      <SiteMenu isOpen={isMenuOpen} current={path} onClose={closeMenu} onNavigate={navigate} returnFocusRef={menuButtonRef} />
+
+      <div ref={wipeRef} className="wipe" aria-hidden="true">
+        <span className="wipe__mask">
+          <span className="wipe__label" />
+        </span>
       </div>
+
+      <div ref={loaderRef} className="loader" aria-hidden="true">
+        <p className="loader__brand">
+          <span className="loader__mask">
+            <span>Pac</span>
+          </span>{' '}
+          <span className="loader__mask">
+            <span>
+              <em>Ai</em>
+            </span>
+          </span>
+        </p>
+        <div className="loader__bar">
+          <i />
+        </div>
+        <p className="loader__count">000</p>
+      </div>
+
+      <Cursor enabled={!reduced} />
     </>
   )
 }

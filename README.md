@@ -2,26 +2,27 @@
 
 Portfolio site for Pac Ai, live at **https://pac-ai-phi.vercel.app**.
 
-The whole site sits behind a fogged greenhouse window. The landing page traces *Pac Ai* into the condensation;
-scroll and a squeegee clears the glass, then the view zooms through into the finale. Move the pointer (or a
-finger) to wipe the fog yourself. The ☰ menu leads to Portfolio, About and Contact, each its own fogged pane;
-moving between pages fogs the glass over and a squeegee wipes it clear again.
+A dark, cinematic studio site. A live WebGL ink field flows behind every page and swirls around the
+pointer; headlines rise in character by character; the home page runs a pinned horizontal showcase where the
+project cards swing through in 3D as you scroll. A custom cursor, magnetic buttons and a full-screen wipe
+between pages finish it off.
 
 ## Pages
 
 | Path | What's there |
 | --- | --- |
-| `/` | Landing: the fogged window, scroll story and finale |
-| `/portfolio` | Four projects, each a glass pane that clears as it scrolls into view |
-| `/about`, `/contact` | Glass pages, content still to come |
+| `/` | Hero, marquee, scroll-lit statement, pinned 3D work showcase, process, call to action |
+| `/portfolio` | Work: one large row per project, with clip-path reveals and pointer tilt |
+| `/about` | Studio bio, principles and toolkit (draft copy) |
+| `/contact` | A form that opens a pre-filled email, plus the address (draft copy) |
 | `/kaiju-stomp/` | Kaiju Stomp showcase with the playable 8-bit game (keyboard) |
 
 ## Stack
 
-React 19, TypeScript and Vite. The fog is a hand-written WebGL2 renderer (`src/GlassEngine.ts`): one
-fullscreen triangle, a low-res wipe mask, a drip normal map and two photographs. Motion is GSAP with
-ScrollTrigger; smooth scrolling on the landing page is Lenis. Visitors who prefer reduced motion get the same
-pages without the animation, and browsers without WebGL2 get the clear photograph.
+React 19, TypeScript and Vite. The backdrop is a hand-written WebGL shader (`src/fx/ShaderField.ts`): one
+fullscreen triangle of domain-warped noise, rendered at reduced resolution. Motion is GSAP (ScrollTrigger,
+SplitText) with Lenis smooth scrolling on one shared ticker. Visitors who prefer reduced motion get every page
+without the animation, smooth scrolling, loader or custom cursor; browsers without WebGL get a CSS gradient.
 
 ## Develop
 
@@ -34,11 +35,12 @@ npm run preview   # serve the production build
 
 ## Where things live
 
-- `src/CondensationHero.tsx` — the landing page
-- `src/GlassEngine.ts` — the WebGL2 fogged-glass renderer
-- `src/App.tsx` — page routing and the fog-and-squeegee transition
-- `src/site/` — menu, glass pages, routes and styles
+- `src/site/content.ts` — **site copy**: hero, statement, process, About and Contact text, contact email
 - `src/site/projects.ts` — **portfolio content**: titles, summaries, tags and links
+- `src/pages/` — the four pages
+- `src/App.tsx` — routing, intro loader, page wipe, backdrop and cursor
+- `src/fx/` — shader field, cursor, smooth scroll, magnetic/tilt effects and the shared reveal hook
+- `src/styles.css` — all styles (colour tokens at the top)
 - `public/kaiju-stomp/` — the Kaiju Stomp showcase and game, served as-is
 
 ## Deploy
