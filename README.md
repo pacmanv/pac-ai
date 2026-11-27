@@ -1,32 +1,51 @@
-# React + TypeScript + Vite
+# Pac Ai — envision and build
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+Portfolio site for Pac Ai, live at **https://pac-ai-phi.vercel.app**.
 
-Currently, two official plugins are available:
+The whole site sits behind a fogged greenhouse window. The landing page traces *Pac Ai* into the condensation;
+scroll and a squeegee clears the glass, then the view zooms through into the finale. Move the pointer (or a
+finger) to wipe the fog yourself. The ☰ menu leads to Portfolio, About and Contact, each its own fogged pane;
+moving between pages fogs the glass over and a squeegee wipes it clear again.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Pages
 
-## React Compiler
+| Path | What's there |
+| --- | --- |
+| `/` | Landing: the fogged window, scroll story and finale |
+| `/portfolio` | Four projects, each a glass pane that clears as it scrolls into view |
+| `/about`, `/contact` | Glass pages, content still to come |
+| `/kaiju-stomp/` | Kaiju Stomp showcase with the playable 8-bit game (keyboard) |
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Stack
 
-## Expanding the Oxlint configuration
+React 19, TypeScript and Vite. The fog is a hand-written WebGL2 renderer (`src/GlassEngine.ts`): one
+fullscreen triangle, a low-res wipe mask, a drip normal map and two photographs. Motion is GSAP with
+ScrollTrigger; smooth scrolling on the landing page is Lenis. Visitors who prefer reduced motion get the same
+pages without the animation, and browsers without WebGL2 get the clear photograph.
 
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `tsrs` and editing `.oxlintrc.json`:
+## Develop
 
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```sh
+npm install
+npm run dev       # local dev server
+npm run build     # type-check and build to dist/
+npm run preview   # serve the production build
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+## Where things live
+
+- `src/CondensationHero.tsx` — the landing page
+- `src/GlassEngine.ts` — the WebGL2 fogged-glass renderer
+- `src/App.tsx` — page routing and the fog-and-squeegee transition
+- `src/site/` — menu, glass pages, routes and styles
+- `src/site/projects.ts` — **portfolio content**: titles, summaries, tags and links
+- `public/kaiju-stomp/` — the Kaiju Stomp showcase and game, served as-is
+
+## Deploy
+
+Hosted on Vercel. `vercel.json` sends every path to the app (so `/about` etc. work on reload) and redirects
+`/kaiju-stomp` to `/kaiju-stomp/`.
+
+```sh
+npx vercel deploy --prod
+```
