@@ -17,7 +17,7 @@ export const HERO = {
   eyebrow: 'Independent AI studio',
   lines: ['Imagine more.', 'Build smarter.'],
   intro:
-    'Pac AI turns half-formed ideas into AI-powered apps, games and tools that people actually love to use.',
+    'Pac AI turns half-formed ideas into customized AI-powered apps, tools, and games that people actually love to use.',
   primary: 'See the work',
   secondary: 'Start a project',
 }
@@ -50,18 +50,15 @@ export const CTA = {
 export const ABOUT = {
   title: ['Hey,', 'I’m Pac.'],
   lead:
-    'I’m a forward-deployed engineer by trade, a creative at heart, and a dad, which keeps me grounded, motivated, and occasionally questioning my sanity.',
+    'I’ve spent nearly two decades in technology, building data platforms, solving complex problems, and helping organizations turn information into solutions. Now, I’m bringing that experience into something of my own.',
   body: [
-    'I’ve spent almost two decades working in technology, building data platforms, solving complex problems, and helping organizations turn information into something useful. Somewhere along the way, I realized I didn’t just want to build systems for other people. I wanted to start creating things of my own.',
     'That’s where **Pac AI** comes in.',
-    'I’m passionate about using AI to turn ideas into real products. Websites, web apps, automations, and digital tools that solve problems, simplify everyday work, and make life a little easier. I enjoy taking something that starts as a rough idea and bringing it to life through technology.',
-    'I believe the best products aren’t necessarily the most complicated. They’re the ones that make people say, “That actually makes my life easier.”',
-    'Outside of tech, I’m a dad, a lifelong learner, and someone who believes in pushing himself both mentally and physically. Whether I’m training, building something late at night, or spending time with family, I’m always looking for ways to grow and become a little better than I was yesterday.',
-    'Pac AI is my way of exploring what’s possible, building with purpose, and sharing that journey along the way.',
+    'I’m a data engineer by trade, a proud single dad, and a creative at heart. I use AI to turn ideas into real products, from websites and web apps to automations and digital tools that make life easier.',
+    'Pac AI is about exploring what’s possible, creating something cool with purpose, and helping others bring their ideas to life.',
   ],
   /** shown beside the story */
-  roles: ['Forward-deployed engineer', 'Creative', 'Dad', 'Builder'],
-  tagline: ['Big ideas.', 'Practical solutions.', 'Built with AI.'],
+  roles: ['Data engineer', 'Creative', 'Single dad', 'Builder'],
+  tagline: ['Imagine more.', 'Build smarter.'],
 }
 
 export const CONTACT = {
