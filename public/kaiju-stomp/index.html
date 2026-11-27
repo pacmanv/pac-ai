@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Kaiju Stomp</title>
+<meta name="description" content="Kaiju Stomp: a single-file 8-bit arcade game built on HTML5 Canvas. Pick a kaiju, flatten a pixel city, and survive two boss fights. Play it in your browser.">
+<meta property="og:title" content="Kaiju Stomp">
+<meta property="og:description" content="A single-file 8-bit arcade game: pick a kaiju, flatten a pixel city, survive two boss fights.">
+<meta property="og:image" content="https://pac-ai-phi.vercel.app/kaiju-stomp/kaiju-stomp-thumbnail.png">
+<meta property="og:url" content="https://pac-ai-phi.vercel.app/kaiju-stomp/">
+<meta property="og:type" content="website">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  /* Layout: night-city case study. Wide hero (pitch + key art), an arcade-cabinet play area,
+     then roster / bosses / build notes on a 12-col grid that collapses to one column. */
+  :root {
+    color-scheme: dark;
+    /* Color: lifted straight from the game's NES-style palette */
+    --night: #07071a;      /* page ground: black with a navy bias */
+    --panel: #10103a;      /* raised surfaces */
+    --line: #2b2b78;       /* hairlines and pixel borders */
+    --fg: #eef0ff;
+    --muted: #a3aadb;
+    --navy: #0000bc;
+    --purple: #940084;
+    --gold: #f8b800;
+    --ice: #a4e4fc;
+    --pink: #f878f8;
+    --green: #58d854;
+    --blue: #3cbcfc;
+    --red: #f83800;
+    /* Type: pixel display used sparingly, a humanist sans for reading, mono for specs */
+    --font-pixel: "Press Start 2P", ui-monospace, "Courier New", monospace;
+    --font-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --font-mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+    --step--1: 0.875rem;
+    --step-0: 1.0625rem;
+    --step-1: 1.25rem;
+    --step-2: clamp(1.5rem, 1.2rem + 1.2vw, 2rem);
+    --step-3: clamp(2rem, 1.2rem + 3.6vw, 3.75rem);
+    --gutter: max(16px, env(safe-area-inset-left, 0px));
+    --gutter-r: max(16px, env(safe-area-inset-right, 0px));
+    --px: 4px;            /* one "game pixel" for chunky borders */
+  }
+
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--night);
+    color: var(--fg);
+    font: 400 var(--step-0)/1.6 var(--font-body);
+  }
+  img { max-width: 100%; display: block; }
+  a { color: var(--ice); }
+  a:hover { color: var(--gold); }
+  :focus-visible { outline: 3px solid var(--gold); outline-offset: 3px; }
+
+  .wrap {
+    width: 100%;
+    max-width: 1180px;
+    margin: 0 auto;
+    padding-left: var(--gutter);
+    padding-right: var(--gutter-r);
+  }
+
+  /* pixel-step border: the game's chunky black outline, at page scale */
+  .pixel-frame {
+    border: var(--px) solid #000;
+    box-shadow:
+      0 0 0 var(--px) var(--line),
+      calc(var(--px) * 3) calc(var(--px) * 3) 0 0 #000;
+  }
+  .pixelated { image-rendering: pixelated; image-rendering: crisp-edges; }
+
+  /* checkerboard dither, like the sky bands in the game */
+  .dither {
+    background-color: var(--navy);
+    background-image: repeating-conic-gradient(var(--purple) 0 25%, transparent 0 50%);
+    background-size: 4px 4px;
+  }
+
+  .eyebrow {
+    font: 500 var(--step--1)/1 var(--font-mono);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin: 0;
+  }
+  h1, h2, h3 { text-wrap: balance; margin: 0; }
+  h2 {
+    font: 400 var(--step-1)/1.5 var(--font-pixel);
+    letter-spacing: 0.02em;
+  }
+  p { margin: 0; max-width: 65ch; }
+
+  /* ---------- hero ---------- */
+  .hero { padding-block: clamp(2.5rem, 5vw, 5rem) clamp(2rem, 4vw, 3.5rem); }
+  .hero-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+    gap: clamp(2rem, 4vw, 4rem);
+    align-items: center;
+  }
+  .hero-copy { display: grid; gap: 1.25rem; min-width: 0; }
+  .title {
+    font: 400 var(--step-3)/1.15 var(--font-pixel);
+    letter-spacing: 0.01em;
+    text-shadow: 0.08em 0.08em 0 var(--navy);
+  }
+  .title .k1 { color: var(--pink); }
+  .title .k2 { color: var(--green); }
+  .title .k3 { color: var(--blue); }
+  .title .stomp { color: var(--gold); display: block; }
+  .pitch { font-size: var(--step-1); color: var(--fg); }
+  .tags { display: flex; flex-wrap: wrap; gap: 0.5rem; padding: 0; margin: 0; list-style: none; }
+  .tags li {
+    font: 500 var(--step--1)/1 var(--font-mono);
+    color: var(--ice);
+    border: 2px solid var(--line);
+    padding: 0.45rem 0.6rem;
+  }
+  .cta-row { display: flex; flex-wrap: wrap; gap: 1rem; align-items: center; }
+  .btn {
+    font: 400 0.8125rem/1 var(--font-pixel);
+    color: #000;
+    background: var(--gold);
+    border: var(--px) solid #000;
+    box-shadow: var(--px) var(--px) 0 #000;
+    padding: 1rem 1.25rem;
+    text-decoration: none;
+    cursor: pointer;
+    transition: transform 80ms steps(2), box-shadow 80ms steps(2);
+  }
+  .btn:hover { color: #000; background: #fce0a8; }
+  .btn:active { transform: translate(var(--px), var(--px)); box-shadow: 0 0 0 #000; }
+  .meta { font: 400 var(--step--1)/1.4 var(--font-mono); color: var(--muted); }
+  .hero-art { margin: 0; min-width: 0; }
+  .hero-art img { width: 100%; height: auto; aspect-ratio: 16 / 10; }
+  .hero-art figcaption { margin-top: 1rem; font: 400 var(--step--1)/1.4 var(--font-mono); color: var(--muted); }
+
+  /* ---------- play ---------- */
+  .play { padding-block: clamp(2rem, 5vw, 4rem); }
+  .section-head { display: grid; gap: 0.75rem; margin-bottom: 2rem; }
+  .play-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(260px, 300px);
+    gap: 2rem;
+    align-items: start;
+  }
+  .cabinet { background: var(--panel); padding: calc(var(--px) * 3); min-width: 0; }
+  .marquee {
+    display: flex; justify-content: space-between; align-items: center; gap: 1rem;
+    padding: 0.85rem 1rem;
+    margin-bottom: calc(var(--px) * 3);
+    border: var(--px) solid #000;
+  }
+  .marquee span { font: 400 0.75rem/1.4 var(--font-pixel); color: var(--gold); text-shadow: 2px 2px 0 #000; }
+  .marquee .credits { color: var(--fg); }
+  .screen {
+    position: relative;
+    /* content-box so the black border sits outside the picture: the inside is exactly
+       256:224 and reaches a full 768 x 672 (3x, integer-scaled) when there is room */
+    box-sizing: content-box;
+    width: calc(100% - 2 * var(--px));
+    max-width: 768px;
+    margin: 0 auto;
+    aspect-ratio: 256 / 224;
+    background: #000;
+    border: var(--px) solid #000;
+  }
+  .screen iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; display: block; }
+  .start {
+    position: absolute; inset: 0;
+    display: grid; place-items: center; align-content: center; gap: 1rem;
+    width: 100%; height: 100%;
+    padding: 1rem;
+    border: 0;
+    color: var(--fg);
+    background: #000 url("kaiju-stomp-thumbnail.png") center / cover no-repeat;
+    image-rendering: pixelated;
+    cursor: pointer;
+  }
+  .start::before { content: ""; position: absolute; inset: 0; background: rgba(7, 7, 26, 0.55); }
+  .start > * { position: relative; }
+  .start .press {
+    font: 400 clamp(0.875rem, 0.6rem + 1.2vw, 1.25rem)/1.4 var(--font-pixel);
+    color: var(--gold);
+    text-shadow: 3px 3px 0 #000;
+    animation: blink 1.1s steps(2, jump-none) infinite;
+  }
+  .start .hint { font: 500 var(--step--1)/1.4 var(--font-mono); color: var(--ice); text-shadow: 2px 2px 0 #000; }
+  .start:hover .press, .start:focus-visible .press { color: #fce0a8; }
+  @keyframes blink { 50% { opacity: 0.35; } }
+  .touch-note {
+    margin-top: 1rem;
+    font: 500 var(--step--1)/1.5 var(--font-mono);
+    color: var(--gold);
+    border-left: var(--px) solid var(--gold);
+    padding-left: 0.75rem;
+  }
+
+  .controls { display: grid; gap: 1.25rem; }
+  .controls h3 { font: 400 0.75rem/1.4 var(--font-pixel); color: var(--gold); }
+  .keys { display: grid; gap: 0.75rem; margin: 0; padding: 0; }
+  .keys div { display: grid; grid-template-columns: 9.5rem 1fr; gap: 0.75rem; align-items: center; }
+  .keys dt { display: flex; gap: 0.3rem; flex-wrap: wrap; }
+  .keys dd { margin: 0; color: var(--muted); font-size: var(--step--1); }
+  kbd {
+    font: 500 0.8125rem/1 var(--font-mono);
+    color: var(--fg);
+    min-width: 2rem;
+    text-align: center;
+    padding: 0.4rem 0.45rem 0.35rem;
+    background: var(--panel);
+    border: 2px solid var(--line);
+    border-bottom-width: 4px;
+  }
+  .tip { font-size: var(--step--1); color: var(--muted); }
+
+  /* ---------- roster / bosses ---------- */
+  .band { padding-block: clamp(2.5rem, 5vw, 4.5rem); }
+  .band + .band { border-top: 2px solid var(--line); }
+  .cards { display: grid; gap: 1.5rem; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .cards.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .card { display: grid; gap: 1rem; align-content: start; min-width: 0; }
+  .card h3 { font: 400 0.9375rem/1.4 var(--font-pixel); }
+  .card p { font-size: var(--step--1); color: var(--muted); }
+  .swatch-line { display: flex; gap: 0.4rem; align-items: center; font: 500 0.8125rem/1 var(--font-mono); color: var(--muted); }
+  .swatch-line i { width: 14px; height: 14px; border: 2px solid #000; display: inline-block; }
+
+  /* crops straight out of the key art: --x/--y/--w/--h in game pixels, --k = css px per game pixel */
+  .crop {
+    --k: 4;
+    width: calc(var(--w) * var(--k) * 1px);
+    max-width: 100%;
+    aspect-ratio: var(--w) / var(--h);
+    background-image: url("kaiju-stomp-thumbnail.png");
+    background-repeat: no-repeat;
+    background-size: calc(320 / var(--w) * 100%) auto;
+    background-position: calc(var(--x) / (320 - var(--w)) * 100%) calc(var(--y) / (200 - var(--h)) * 100%);
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+  }
+  .attack { display: grid; gap: 0.35rem; margin: 0; padding: 0; list-style: none; }
+  .attack li { font-size: var(--step--1); color: var(--fg); padding-left: 1.25rem; position: relative; }
+  .attack li::before { content: ""; position: absolute; left: 0; top: 0.55em; width: 8px; height: 8px; background: var(--gold); }
+
+  /* ---------- build notes ---------- */
+  .notes-grid { display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); gap: clamp(2rem, 4vw, 4rem); }
+  .notes { display: grid; gap: 1.5rem; }
+  .notes article { display: grid; gap: 0.4rem; }
+  .notes h3 { font: 600 var(--step-0)/1.4 var(--font-body); color: var(--ice); }
+  .notes p { font-size: var(--step--1); color: var(--muted); }
+  .specs { margin: 0; padding: 1.5rem; background: var(--panel); display: grid; gap: 0.9rem; align-content: start; }
+  .specs div { display: flex; justify-content: space-between; gap: 1rem; border-bottom: 1px dashed var(--line); padding-bottom: 0.9rem; }
+  .specs div:last-child { border-bottom: 0; padding-bottom: 0; }
+  .specs dt { color: var(--muted); font-size: var(--step--1); }
+  .specs dd { margin: 0; font: 500 var(--step--1)/1.6 var(--font-mono); color: var(--fg); font-variant-numeric: tabular-nums; text-align: right; }
+  .palette { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 0; margin-top: 1.5rem; border: var(--px) solid #000; }
+  .palette span { aspect-ratio: 1; }
+  .palette-caption { margin-top: 0.75rem; font: 400 0.8125rem/1.4 var(--font-mono); color: var(--muted); }
+
+  /* back to the Pac Ai portfolio */
+  .site-back { padding-top: max(16px, env(safe-area-inset-top, 0px)); }
+  .site-back a {
+    display: inline-flex; align-items: center; gap: 0.5rem;
+    min-height: 44px;
+    font: 500 var(--step--1)/1 var(--font-mono);
+    letter-spacing: 0.06em; text-transform: uppercase;
+    color: var(--muted); text-decoration: none;
+  }
+  .site-back a:hover { color: var(--gold); }
+
+  footer { padding-block: 2.5rem 3rem; border-top: 2px solid var(--line); }
+  footer p { font: 400 var(--step--1)/1.5 var(--font-mono); color: var(--muted); max-width: none; }
+
+  @media (max-width: 900px) {
+    .hero-grid, .play-grid, .notes-grid { grid-template-columns: minmax(0, 1fr); }
+    .hero-art { order: -1; }
+    .cards { grid-template-columns: minmax(0, 1fr); }
+    .cards.two { grid-template-columns: minmax(0, 1fr); }
+    .card { grid-template-columns: auto minmax(0, 1fr); align-items: start; column-gap: 1.25rem; }
+    .card .crop { grid-row: span 3; --k: 3; }
+  }
+  @media (max-width: 480px) {
+    .card { grid-template-columns: minmax(0, 1fr); }
+    .card .crop { grid-row: auto; }
+    .palette { grid-template-columns: repeat(8, minmax(0, 1fr)); }
+    .keys div { grid-template-columns: 9.5rem 1fr; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .start .press { animation: none; }
+    .btn { transition: none; }
+    html { scroll-behavior: auto; }
+  }
+  @media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
+</style>
+</head>
+<body>
+
+<nav class="site-back wrap" aria-label="Site">
+  <a href="/portfolio"><span aria-hidden="true">←</span> Pac Ai · Portfolio</a>
+</nav>
+
+<header class="hero">
+  <div class="wrap hero-grid">
+    <div class="hero-copy">
+      <p class="eyebrow">Game project · HTML5 Canvas · 2026</p>
+      <h1 class="title" aria-label="Kaiju Stomp">
+        <span class="k1">KA</span><span class="k2">IJ</span><span class="k3">U</span>
+        <span class="stomp">STOMP</span>
+      </h1>
+      <p class="pitch">A single-file 8-bit arcade game. Pick a kaiju, flatten a pixel city block by block, dodge the military, and survive two boss fights.</p>
+      <ul class="tags" aria-label="Built with">
+        <li>Vanilla JS</li>
+        <li>Canvas 2D</li>
+        <li>Web Audio</li>
+        <li>0 assets</li>
+        <li>1 HTML file</li>
+      </ul>
+      <div class="cta-row">
+        <a class="btn" href="#play">Play it now</a>
+        <span class="meta">Runs in the browser · keyboard required</span>
+      </div>
+    </div>
+    <figure class="hero-art">
+      <img class="pixel-frame pixelated" src="kaiju-stomp-thumbnail.png" width="3200" height="2000"
+           alt="Pixel-art key art: three kaiju in pink, blue and green rampage through a night city; the green one fires a blue beam at a golden three-headed dragon while a giant moth flies overhead.">
+      <figcaption>Key art composed from the game's own sprites and palette, upscaled 10× nearest-neighbor.</figcaption>
+    </figure>
+  </div>
+</header>
+
+<main>
+  <section class="play" id="play" aria-labelledby="play-heading">
+    <div class="wrap">
+      <div class="section-head">
+        <p class="eyebrow">Playable demo</p>
+        <h2 id="play-heading">Insert coin</h2>
+      </div>
+      <div class="play-grid">
+        <div class="cabinet pixel-frame">
+          <div class="marquee dither">
+            <span>KAIJU STOMP</span>
+            <span class="credits">1P START</span>
+          </div>
+          <div class="screen" id="screen">
+            <button class="start" id="start" type="button" aria-label="Start Kaiju Stomp">
+              <span class="press">PRESS START</span>
+              <span class="hint">Loads the game · sound on</span>
+            </button>
+          </div>
+          <p class="touch-note" id="touch-note" hidden>This game is played with a keyboard. Open this page on a laptop or desktop to play.</p>
+        </div>
+
+        <aside class="controls" aria-labelledby="controls-heading">
+          <h3 id="controls-heading">CONTROLS</h3>
+          <dl class="keys">
+            <div><dt><kbd>←</kbd><kbd>→</kbd><kbd>A</kbd><kbd>D</kbd></dt><dd>Walk</dd></div>
+            <div><dt><kbd>↑</kbd><kbd>W</kbd></dt><dd>Jump (hold for height)</dd></div>
+            <div><dt><kbd>Space</kbd></dt><dd>Atomic breath</dd></div>
+            <div><dt><kbd>1</kbd><kbd>2</kbd><kbd>3</kbd></dt><dd>Choose a kaiju</dd></div>
+            <div><dt><kbd>Enter</kbd></dt><dd>Start / retry</dd></div>
+            <div><dt><kbd>P</kbd><kbd>M</kbd></dt><dd>Pause / mute</dd></div>
+          </dl>
+          <p class="tip">Land a jump to stomp: the shockwave crushes tanks and cracks foundations. The beam overheats if you hold it too long.</p>
+        </aside>
+      </div>
+    </div>
+  </section>
+
+  <section class="band" aria-labelledby="roster-heading">
+    <div class="wrap">
+      <div class="section-head">
+        <p class="eyebrow">The roster</p>
+        <h2 id="roster-heading">Three kaiju, one sprite</h2>
+        <p>Each playable kaiju shares one hand-drawn sprite sheet, recolored at load time. The character select is personal: the game was built for Luna, Luka and Kanoa.</p>
+      </div>
+      <div class="cards">
+        <article class="card">
+          <div class="crop pixel-frame" style="--x:60;--y:94;--w:36;--h:40" role="img" aria-label="Luna's pink kaiju mid-jump"></div>
+          <h3 style="color:var(--pink)">LUNA</h3>
+          <p class="swatch-line"><i style="background:#f878f8"></i><i style="background:#f8b8f8"></i><i style="background:#940084"></i> pink / blush / plum</p>
+        </article>
+        <article class="card">
+          <div class="crop pixel-frame" style="--x:132;--y:134;--w:36;--h:40" role="img" aria-label="Luka's green kaiju breathing its atomic beam"></div>
+          <h3 style="color:var(--green)">LUKA</h3>
+          <p class="swatch-line"><i style="background:#00a800"></i><i style="background:#58d854"></i><i style="background:#005800"></i> green / lime / forest</p>
+        </article>
+        <article class="card">
+          <div class="crop pixel-frame" style="--x:96;--y:134;--w:36;--h:40" role="img" aria-label="Kanoa's blue kaiju stomping forward"></div>
+          <h3 style="color:var(--blue)">KANOA</h3>
+          <p class="swatch-line"><i style="background:#0078f8"></i><i style="background:#3cbcfc"></i><i style="background:#0000bc"></i> azure / sky / navy</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="band" aria-labelledby="boss-heading">
+    <div class="wrap">
+      <div class="section-head">
+        <p class="eyebrow">Boss fights</p>
+        <h2 id="boss-heading">The city fights back</h2>
+        <p>Rampage far enough and a siren sounds. The camera locks into an arena, the army pulls back, and a boss arrives. They alternate and get tougher each time they return.</p>
+      </div>
+      <div class="cards two">
+        <article class="card">
+          <div class="crop pixel-frame" style="--x:24;--y:58;--w:56;--h:34;--k:5" role="img" aria-label="LUMINA, a giant golden moth, scattering sparkling dust"></div>
+          <h3 style="color:var(--gold)">LUMINA</h3>
+          <ul class="attack">
+            <li>Drifts in a figure-eight just within jump-beam reach</li>
+            <li>Sprinkles swaying dust that the beam can burn away</li>
+            <li>Dives at where you were standing, so keep moving</li>
+          </ul>
+        </article>
+        <article class="card">
+          <div class="crop pixel-frame" style="--x:234;--y:100;--w:62;--h:74;--k:4" role="img" aria-label="TRIDRA, a golden three-headed dragon, taking a beam hit"></div>
+          <h3 style="color:var(--gold)">TRIDRA</h3>
+          <ul class="attack">
+            <li>Three heads on chained necks, each its own hitbox</li>
+            <li>Triple lightning bolt aimed from every mouth</li>
+            <li>Telegraphed sky strikes that also level buildings</li>
+          </ul>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="band" aria-labelledby="build-heading">
+    <div class="wrap">
+      <div class="section-head">
+        <p class="eyebrow">Build notes</p>
+        <h2 id="build-heading">Under the hood</h2>
+      </div>
+      <div class="notes-grid">
+        <div class="notes">
+          <article>
+            <h3>Pixel-true rendering</h3>
+            <p>Everything draws to a 256 × 224 canvas, the NES's resolution, and the canvas is scaled by whole numbers with nearest-neighbor filtering, so pixels stay square and sharp at any window size.</p>
+          </article>
+          <article>
+            <h3>Sprites written as text</h3>
+            <p>Every sprite is a small character map (k = outline, g = hide, s = dorsal plate) that renders once into an offscreen canvas, mirrored for both directions. The moth is stored as half a sprite and mirrored at load.</p>
+          </article>
+          <article>
+            <h3>Buildings that actually collapse</h3>
+            <p>Towers are grids of 8 × 8 blocks with their own hit points. Break a block and everything above it detaches into falling debris, which can crack the floor it lands on and set off chain collapses.</p>
+          </article>
+          <article>
+            <h3>Deterministic game loop</h3>
+            <p>A fixed 60 Hz update step with an accumulator keeps the physics the same on 60, 120 and 144 Hz screens. Sound effects are synthesized live with Web Audio square waves and filtered noise. There are no audio files.</p>
+          </article>
+        </div>
+        <div>
+          <dl class="specs">
+            <div><dt>Internal resolution</dt><dd>256 × 224</dd></div>
+            <div><dt>Update rate</dt><dd>60 Hz fixed</dd></div>
+            <div><dt>Palette</dt><dd>24 colors</dd></div>
+            <div><dt>Playable kaiju</dt><dd>3</dd></div>
+            <div><dt>Boss fights</dt><dd>2</dd></div>
+            <div><dt>External assets</dt><dd>0</dd></div>
+            <div><dt>Source</dt><dd>1,295 lines · 50.5 KB</dd></div>
+          </dl>
+          <div class="palette" aria-label="The game's 24-color palette">
+            <span style="background:#000000" title="#000000"></span><span style="background:#fcfcfc" title="#fcfcfc"></span>
+            <span style="background:#bcbcbc" title="#bcbcbc"></span><span style="background:#7c7c7c" title="#7c7c7c"></span>
+            <span style="background:#0000bc" title="#0000bc"></span><span style="background:#6844fc" title="#6844fc"></span>
+            <span style="background:#0058f8" title="#0058f8"></span><span style="background:#3cbcfc" title="#3cbcfc"></span>
+            <span style="background:#a4e4fc" title="#a4e4fc"></span><span style="background:#00a800" title="#00a800"></span>
+            <span style="background:#58d854" title="#58d854"></span><span style="background:#005800" title="#005800"></span>
+            <span style="background:#f83800" title="#f83800"></span><span style="background:#e45c10" title="#e45c10"></span>
+            <span style="background:#fca044" title="#fca044"></span><span style="background:#f8b800" title="#f8b800"></span>
+            <span style="background:#fce0a8" title="#fce0a8"></span><span style="background:#503000" title="#503000"></span>
+            <span style="background:#ac7c00" title="#ac7c00"></span><span style="background:#881400" title="#881400"></span>
+            <span style="background:#940084" title="#940084"></span><span style="background:#f878f8" title="#f878f8"></span>
+            <span style="background:#f8b8f8" title="#f8b8f8"></span><span style="background:#0078f8" title="#0078f8"></span>
+          </div>
+          <p class="palette-caption">Every color on screen comes from this NES-style set.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <p>Kaiju Stomp · original characters and pixel art, all drawn in code · 2026</p>
+  </div>
+</footer>
+
+<script>
+  // Load the game only when asked: no audio or CPU cost until the visitor presses start.
+  (function () {
+    const start = document.getElementById('start');
+    const screen = document.getElementById('screen');
+    const coarse = window.matchMedia('(hover: none) and (pointer: coarse)').matches;
+    if (coarse) document.getElementById('touch-note').hidden = false;
+
+    // "Play it now" scrolls to the cabinet and starts the game in one click (on keyboard devices)
+    const playNow = document.querySelector('.btn[href="#play"]');
+    if (playNow && !coarse) {
+      playNow.addEventListener('click', function (e) {
+        if (!document.getElementById('start')) return;   // already running: plain jump
+        e.preventDefault();
+        start.click();
+      });
+    }
+
+    start.addEventListener('click', function () {
+      const frame = document.createElement('iframe');
+      frame.src = '/kaiju-stomp/game.html';
+      frame.title = 'Kaiju Stomp, playable game';
+      frame.setAttribute('allow', 'autoplay');
+      frame.addEventListener('load', function () { frame.focus(); });
+      start.replaceWith(frame);
+      screen.scrollIntoView({ block: 'center', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+    });
+  })();
+</script>
+</body>
+</html>

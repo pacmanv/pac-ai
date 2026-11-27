@@ -1,0 +1,1295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kaiju Stomp</title>
+<style>
+  :root { color-scheme: dark; }
+  html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
+  canvas { cursor: pointer; }
+  body { display: flex; align-items: center; justify-content: center; }
+  canvas {
+    display: block;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+  }
+</style>
+</head>
+<body>
+<canvas id="game" width="256" height="224"></canvas>
+<script>
+"use strict";
+
+// ============================================================
+//  KAIJU STOMP — core loop
+//  256x224 internal resolution (NES-sized), integer-scaled.
+// ============================================================
+
+const W = 256, H = 224, GROUND = 200, CELL = 8, BEAM_LEN = 150;
+const STEP = 1000 / 60;
+
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+ctx.imageSmoothingEnabled = false;
+
+// Classic 8-bit (NES-style) palette — every color in the game comes from here.
+const PAL = {
+  black: '#000000', white: '#fcfcfc', lgray: '#bcbcbc', gray: '#7c7c7c',
+  navy: '#0000bc', violet: '#6844fc', blue: '#0058f8', sky: '#3cbcfc', ice: '#a4e4fc',
+  green: '#00a800', lgreen: '#58d854', dgreen: '#005800',
+  red: '#f83800', orange: '#e45c10', peach: '#fca044', gold: '#f8b800', cream: '#fce0a8',
+  brown: '#503000', khaki: '#ac7c00', maroon: '#881400', purple: '#940084',
+  pink: '#f878f8', lpink: '#f8b8f8', azure: '#0078f8'
+};
+
+// Playable kaiju — one per kid. g = hide, l = belly, d = shade.
+const CHARACTERS = [
+  { name: 'LUNA',  g: PAL.pink,  l: PAL.lpink,  d: PAL.purple },
+  { name: 'LUKA',  g: PAL.green, l: PAL.lgreen, d: PAL.dgreen },
+  { name: 'KANOA', g: PAL.azure, l: PAL.sky,    d: PAL.navy },
+];
+
+function resize() {
+  const fit = Math.min(innerWidth / W, innerHeight / H);
+  const s = fit >= 1 ? Math.floor(fit) : fit;       // integer scale whenever possible
+  canvas.style.width = (W * s) + 'px';
+  canvas.style.height = (H * s) + 'px';
+}
+addEventListener('resize', resize);
+resize();
+
+// ---------- helpers ----------
+const rand = (a, b) => a + Math.random() * (b - a);
+const randi = (a, b) => Math.floor(rand(a, b + 1));
+const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const mod = (a, n) => ((a % n) + n) % n;
+const overlap = (a, b) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+function hash(n) {
+  n = n | 0;
+  n = Math.imul(n ^ (n >>> 16), 0x45d9f3b);
+  n = Math.imul(n ^ (n >>> 16), 0x45d9f3b);
+  n ^= n >>> 16;
+  return (n >>> 0) / 4294967296;
+}
+
+// ---------- sprites (built from text maps, pre-rendered both directions) ----------
+function makeSprite(rows, map) {
+  const w = Math.max(...rows.map(r => r.length)), h = rows.length;
+  const r = document.createElement('canvas'); r.width = w; r.height = h;
+  const g = r.getContext('2d');
+  rows.forEach((row, y) => {
+    for (let x = 0; x < row.length; x++) {
+      const col = map[row[x]];
+      if (col) { g.fillStyle = col; g.fillRect(x, y, 1, 1); }
+    }
+  });
+  const l = document.createElement('canvas'); l.width = w; l.height = h;
+  const lg = l.getContext('2d');
+  lg.translate(w, 0); lg.scale(-1, 1); lg.drawImage(r, 0, 0);
+  return { r, l, w, h };
+}
+
+// Original kaiju design, facing right. k=outline g=hide l=belly d=shade s/w=dorsal plates r=eye
+const KAIJU_BODY = [
+  '................kkkkkk',
+  '...............kggggggkk',
+  '..............kgggggggggk',
+  '..............kggggrrggggk',
+  '..............kgggggggggggk',
+  '...............kgggggggggggk',
+  '..........k....kggggkkkkkkk',
+  '.........ksk...kgggkwkwkwk',
+  '.........ksk..kggggggggggk',
+  '........kswsk.kgggglllkkk',
+  '........kswskkgggglllk',
+  '.......kswwskggggllllk',
+  '.......kswskgggggllllkkkk',
+  '......kswwskgggggllllgggggk',
+  '......kswskggggggllllkkkgwk',
+  '.....kswwskggggggllllk..kk',
+  '.....kswskgggggggllllk',
+  '....kswskggggggggllllk',
+  '....ksskkkgggggggllllk',
+  '....kk..kgggggggggllk',
+  '..kkggkkggggggggggllk',
+  'kkgggggggggggggggglk',
+  'kddgggggggggggggggk',
+  '.kkkddgggggggggggggk',
+];
+// Mouth-open rows (6-8) used while breathing the beam.
+const KAIJU_MOUTH_OPEN = {
+  6: '..........k....kggggkwkwkwk',
+  7: '.........ksk...kgggk',
+  8: '.........ksk..kggggkwkwkk',
+};
+const LEGS_A = [
+  '.....kkgggggk.kgggggk',
+  '......kggggk..kggggk',
+  '......kggggk..kggggk',
+  '.....kggggk...kgggggk',
+  '.....kggggk....kggggk',
+  '....kgggggk....kgggggk',
+  '....kwkwkwk....kwkwkwk',
+  '....kkkkkkk....kkkkkkk',
+];
+const LEGS_B = [
+  '.....kkgggggk.kgggggk',
+  '.......kggggkkggggk',
+  '........kggggkgggk',
+  '........kgggkkgggk',
+  '.......kgggk..kgggk',
+  '......kggggk..kggggk',
+  '......kwkwkk..kwkwkk',
+  '......kkkkk...kkkkk',
+];
+const LEGS_JUMP = [
+  '.....kkgggggggggggk',
+  '......kggggk.kggggk',
+  '......kwkwkk.kwkwkk',
+  '......kkkkk..kkkkk',
+];
+function kaijuRows(open, legs) {
+  const body = KAIJU_BODY.map((row, i) => (open && KAIJU_MOUTH_OPEN[i]) || row);
+  return body.concat(legs);
+}
+// Pre-render every pose in every kid's color: KAIJU_SPR[charIdx][pose]
+const KAIJU_SPR = CHARACTERS.map(ch => {
+  const map = { k: PAL.black, g: ch.g, l: ch.l, d: ch.d, s: PAL.lgray, w: PAL.white, r: PAL.red };
+  const glow = { ...map, s: PAL.ice, w: PAL.white };
+  const set = {};
+  for (const [name, legs] of [['a', LEGS_A], ['b', LEGS_B], ['j', LEGS_JUMP]]) {
+    set[name] = makeSprite(kaijuRows(false, legs), map);
+    set[name + 'Fire'] = makeSprite(kaijuRows(true, legs), glow);
+  }
+  return set;
+});
+
+const TANK_MAP = { k: PAL.black, y: PAL.khaki, b: PAL.brown, w: PAL.cream };
+const TANK_A = makeSprite([
+  '.....kkkkk......',
+  '....kyywyykkkkkk',
+  '....kyyyyyyyyyyk',
+  '.kkkkkkkkkkkkkk.',
+  'kyyyyyyyyyyyyyyk',
+  'kbbbbbbbbbbbbbbk',
+  'kbkbkbkbkbkbkbbk',
+  '.kkkkkkkkkkkkkk.',
+], TANK_MAP);
+const TANK_B = makeSprite([
+  '.....kkkkk......',
+  '....kyywyykkkkkk',
+  '....kyyyyyyyyyyk',
+  '.kkkkkkkkkkkkkk.',
+  'kyyyyyyyyyyyyyyk',
+  'kbbbbbbbbbbbbbbk',
+  'kkbkbkbkbkbkbkbk',
+  '.kkkkkkkkkkkkkk.',
+], TANK_MAP);
+
+const HELI_MAP = { k: PAL.black, g: PAL.gray, i: PAL.ice, r: PAL.red };
+const heliBody = [
+  '.........k..........',
+  '........kkkkkk......',
+  'k......kgggggiik....',
+  'kk.kkkkgggggggiik...',
+  '.kkggggggggggggggk..',
+  'k..kkkkggrgggggggk..',
+  '.......kkkkkkkkkk...',
+  '........k......k....',
+  '.......kkkkkkkkkkk..',
+];
+const HELI_A = makeSprite(['kkkkkkkkkkkkkkkkkkk.'].concat(heliBody), HELI_MAP);
+const HELI_B = makeSprite(['.....kkkkkkkkk......'].concat(heliBody), HELI_MAP);
+
+// ---------- boss sprites (original designs) ----------
+// Left half of a symmetric sprite; the last char is the center column.
+const mirrorRows = half => half.map(r => r + r.slice(0, -1).split('').reverse().join(''));
+function makeSilhouette(rows, color = PAL.white) {
+  const map = {};
+  for (const ch of rows.join('')) if (ch !== '.') map[ch] = color;
+  return makeSprite(rows, map);
+}
+
+// LUMINA — giant glowing moth. Two wing frames.
+const MOTH_MAP = { k: PAL.black, y: PAL.gold, o: PAL.orange, c: PAL.cream, w: PAL.white, r: PAL.red, n: PAL.navy, b: PAL.brown };
+const MOTH_A_ROWS = mirrorRows([
+  '..............k..', '...............k.', 'kkkkkk.........kk', 'kyyyyykkk.....kcc',
+  'kyooooyyykk...kcw', 'kyorrroyyyykk.kcc', 'kyornnroyyyyykkbc', 'kyorrroyyyyyyykbc',
+  'kyooooyyyyyyyyykb', '.kyyyyyyyyyyyykbc', '..kkyyyyyyyykkkbc', '....kkkkkkkkkykbc',
+  '......kyyooyyykbc', '.....kyoccoyykkbc', '.....kyoccoykk.kb', '......kyooyk...kb',
+  '.......kkkk.....k',
+]);
+const MOTH_B_ROWS = mirrorRows([
+  '..............k..', '...............k.', '...............kk', '....kkkk......kcc',
+  '...kyyyykkk...kcw', '..kyoooyyyykk.kcc', '..kyornroyyyykkbc', '..kyorrroyyyyykbc',
+  '...kyooyyyyyyyykb', '....kyyyyyyyyykbc', '.....kkyyyyyykkbc', '......kkkkkkkykbc',
+  '.......kyyooyykbc', '......kyoccoykkbc', '......kyoccokk.kb', '.......kyook...kb',
+  '........kkk.....k',
+]);
+const MOTH = {
+  a: makeSprite(MOTH_A_ROWS, MOTH_MAP), b: makeSprite(MOTH_B_ROWS, MOTH_MAP),
+  fa: makeSilhouette(MOTH_A_ROWS), fb: makeSilhouette(MOTH_B_ROWS),
+};
+
+// TRIDRA — three-headed golden dragon. Body faces right; necks + heads are drawn separately.
+const DRAGON_MAP = { k: PAL.black, y: PAL.gold, o: PAL.orange, c: PAL.cream, w: PAL.white, r: PAL.red };
+const DRAGON_BODY_ROWS = [
+  '....k', '...kyk', '..kyyyk', '..kyoyyk', '.kyooyyykk', '.kyoooyyyykk',
+  'kyoooooyyyyykk', 'kyooooooyyyyyykk', 'kyoooooooyyyyyyykkkkk', '.kyoooooooyyyyyyyyyyyykkk',
+  '.kyooooooookyyyyyyyyyyyyyk', '..kyoooooookyyyyyyyyyyyyyyk', '..kkyoooookyyyyyyyyyccyyyyyk',
+  '....kkoookyyyyyyyyycccyyyyyyk', '......kkkyyyyyyyyycccccyyyyyk', '........kyyyyyyyycccccyyyyyyk',
+  '.......kyyyyyyyyycccccyyyyyk', '......kyyyyyyyyyyccccyyyyyyk', '.....kyyyyyyyyyyyccccyyyyyk',
+  '....kyyyykyyyyyyyycccyyyyyk', '...kyyyk.kyyyyyyyyyccyyyyk', '..kyyyk..kyyyykkyyyyyyyyk',
+  '.kyyyk...kyyyk..kyyyyyyk', 'kyyk.....kyyyk...kyyyyk', 'kyk......kyyyk...kyyyyk',
+  'kk.......kyyyk...kyyyyk', '........kyyyyk...kyyyyk', '........kwkwkk..kyyyyyk',
+  '........kkkkk...kwkwkwk', '................kkkkkkk',
+];
+const DRAGON_HEAD_ROWS = ['..kk.kk....', '.kyykyyk...', 'kyyyyyyykkk', 'kyyyyyryyyk', 'kyyyyykkkkk', '.kyyyyk....', '..kkkk.....'];
+const DRAGON_HEAD_OPEN = ['..kk.kk....', '.kyykyyk...', 'kyyyyyyykkk', 'kyyyyyryyyk', 'kyyyyyk....', '.kyyyykwk..', '..kkkk.k...'];
+const DRAGON = {
+  body: makeSprite(DRAGON_BODY_ROWS, DRAGON_MAP), bodyF: makeSilhouette(DRAGON_BODY_ROWS),
+  head: makeSprite(DRAGON_HEAD_ROWS, DRAGON_MAP), headOpen: makeSprite(DRAGON_HEAD_OPEN, DRAGON_MAP),
+  headF: makeSilhouette(DRAGON_HEAD_ROWS),
+};
+const NECK_ANCHOR = { x: 22, y: 11 };                       // shoulder, relative to body (facing right)
+const HEAD_SLOTS = [{ x: 6, y: -20, ph: 0 }, { x: 21, y: -30, ph: 2 }, { x: 35, y: -12, ph: 4 }];
+
+const BOSSES = {
+  moth:   { name: 'LUMINA', bonus: 5000 },
+  dragon: { name: 'TRIDRA', bonus: 8000 },
+};
+const FIRST_BOSS_X = 1100, BOSS_GAP = 1600, WARN_FRAMES = 150, BOSS_HEAL = 6;
+const MOTH_Y = 132;   // cruising height: its whole bob (120-144) stays inside jump-beam reach, above a standing kaiju
+const CAM_EASE = 3;   // max px/frame the camera catches up after a boss arena unlocks
+
+const SCHEMES = [
+  { body: PAL.gray,   edge: PAL.black, win: PAL.gold,  dark: PAL.black },
+  { body: PAL.lgray,  edge: PAL.black, win: PAL.sky,   dark: PAL.gray },
+  { body: PAL.khaki,  edge: PAL.black, win: PAL.cream, dark: PAL.brown },
+  { body: PAL.maroon, edge: PAL.black, win: PAL.peach, dark: PAL.black },
+  { body: PAL.blue,   edge: PAL.black, win: PAL.ice,   dark: PAL.navy },
+];
+
+// ---------- 3x5 pixel font (no external fonts) ----------
+const FONT = {
+  A:'010101111101101', B:'110101110101110', C:'011100100100011', D:'110101101101110',
+  E:'111100110100111', F:'111100110100100', G:'011100101101011', H:'101101111101101',
+  I:'111010010010111', J:'001001001101010', K:'101101110101101', L:'100100100100111',
+  M:'101111111101101', N:'110101101101101', O:'010101101101010', P:'110101110100100',
+  Q:'010101101110011', R:'110101110101101', S:'011100010001110', T:'111010010010010',
+  U:'101101101101111', V:'101101101101010', W:'101101111111101', X:'101101010101101',
+  Y:'101101010010010', Z:'111001010100111',
+  '0':'111101101101111', '1':'010110010010111', '2':'110001010100111', '3':'110001010001110',
+  '4':'101101111001001', '5':'111100110001110', '6':'011100110101010', '7':'111001010010010',
+  '8':'010101010101010', '9':'010101011001110',
+  ':':'000010000010000', '!':'010010010000010', '-':'000000111000000', '.':'000000000000010',
+  '/':'001001010100100', '+':'000010111010000', '>':'100010001010100', ' ':'000000000000000',
+};
+function drawTextRaw(str, x, y, color, s) {
+  ctx.fillStyle = color;
+  str = String(str).toUpperCase();
+  for (let i = 0; i < str.length; i++) {
+    const g = FONT[str[i]];
+    if (g) for (let j = 0; j < 15; j++) if (g[j] === '1') ctx.fillRect(x + (j % 3) * s, y + ((j / 3) | 0) * s, s, s);
+    x += 4 * s;
+  }
+}
+function drawText(str, x, y, color, s = 1, shadow = PAL.black) {
+  if (shadow) drawTextRaw(str, x + s, y + s, shadow, s);
+  drawTextRaw(str, x, y, color, s);
+}
+const textW = (str, s = 1) => String(str).length * 4 * s - s;
+const centerText = (str, y, color, s = 1) => drawText(str, Math.round((W - textW(str, s)) / 2), y, color, s);
+const pad = (n, len) => String(Math.floor(n)).padStart(len, '0');
+
+// ---------- pre-rendered sky ----------
+const skyCanvas = document.createElement('canvas');
+skyCanvas.width = W; skyCanvas.height = GROUND;
+(function buildSky() {
+  const g = skyCanvas.getContext('2d');
+  const band = (y0, y1, c) => { g.fillStyle = c; g.fillRect(0, y0, W, y1 - y0); };
+  const dither = (y0, y1, c1, c2) => {
+    for (let y = y0; y < y1; y++) for (let x = 0; x < W; x++) {
+      g.fillStyle = ((x + y) & 1) ? c1 : c2; g.fillRect(x, y, 1, 1);
+    }
+  };
+  band(0, 64, PAL.black);
+  dither(64, 72, PAL.black, PAL.navy);
+  band(72, 124, PAL.navy);
+  dither(124, 132, PAL.navy, PAL.purple);
+  band(132, GROUND, PAL.purple);
+  for (let i = 0; i < 46; i++) {
+    g.fillStyle = hash(i * 3 + 1) < 0.7 ? PAL.white : PAL.lgray;
+    g.fillRect(Math.floor(hash(i * 7 + 2) * W), Math.floor(hash(i * 11 + 5) * 70), 1, 1);
+  }
+  // moon
+  const mx = 206, my = 40, mr = 11;
+  for (let y = -mr; y <= mr; y++) for (let x = -mr; x <= mr; x++) {
+    if (x * x + y * y <= mr * mr) { g.fillStyle = PAL.cream; g.fillRect(mx + x, my + y, 1, 1); }
+  }
+  g.fillStyle = PAL.peach;
+  g.fillRect(mx - 4, my - 3, 3, 3); g.fillRect(mx + 3, my + 2, 4, 3); g.fillRect(mx - 2, my + 5, 2, 2);
+})();
+
+// ---------- audio (tiny square-wave/noise SFX, starts on first key press) ----------
+let actx = null, noiseBuf = null, beamNode = null, muted = false, lastBreakSfx = 0;
+function audioInit() {
+  if (!actx) {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    try { actx = new AC(); } catch (e) { return; }
+    const len = Math.floor(actx.sampleRate * 0.5);
+    noiseBuf = actx.createBuffer(1, len, actx.sampleRate);
+    const d = noiseBuf.getChannelData(0);
+    for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+  }
+  if (actx.state === 'suspended') actx.resume();
+}
+function tone(f, dur, type = 'square', vol = 0.06, f2 = 0, delay = 0) {
+  if (!actx || muted) return;
+  const t = actx.currentTime + delay, o = actx.createOscillator(), g = actx.createGain();
+  o.type = type; o.frequency.setValueAtTime(f, t);
+  if (f2) o.frequency.exponentialRampToValueAtTime(f2, t + dur);
+  g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(g); g.connect(actx.destination); o.start(t); o.stop(t + dur + 0.02);
+}
+function boom(dur, vol) {
+  if (!actx || muted) return;
+  const t = actx.currentTime, s = actx.createBufferSource(), g = actx.createGain(), f = actx.createBiquadFilter();
+  s.buffer = noiseBuf; f.type = 'lowpass';
+  f.frequency.setValueAtTime(1400, t); f.frequency.exponentialRampToValueAtTime(90, t + dur);
+  g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  s.connect(f); f.connect(g); g.connect(actx.destination); s.start(t); s.stop(t + dur);
+}
+function beamSound(on) {
+  if (on && !muted && actx && !beamNode) {
+    const o = actx.createOscillator(), g = actx.createGain();
+    o.type = 'sawtooth'; o.frequency.value = 70; g.gain.value = 0.03;
+    o.connect(g); g.connect(actx.destination); o.start();
+    beamNode = { o, g };
+  } else if ((!on || muted) && beamNode) {
+    try { beamNode.o.stop(); } catch (e) { /* already stopped */ }
+    beamNode = null;
+  }
+  if (beamNode) beamNode.o.frequency.setValueAtTime(60 + Math.random() * 60, actx.currentTime);
+}
+const SFX = {
+  jump:    () => tone(180, 0.18, 'square', 0.05, 420),
+  stomp:   () => { boom(0.4, 0.3); tone(90, 0.3, 'triangle', 0.2, 35); },
+  crumble: () => { if (tick - lastBreakSfx > 4) { lastBreakSfx = tick; boom(0.09, 0.07); } },
+  explode: () => boom(0.45, 0.22),
+  hurt:    () => tone(320, 0.22, 'square', 0.08, 70),
+  shoot:   () => tone(880, 0.05, 'square', 0.02, 500),
+  razed:   () => { tone(523, 0.08, 'square', 0.05); tone(659, 0.08, 'square', 0.05, 0, 0.08); tone(784, 0.14, 'square', 0.05, 0, 0.16); },
+  start:   () => { tone(262, 0.1, 'square', 0.05); tone(392, 0.1, 'square', 0.05, 0, 0.1); tone(523, 0.2, 'square', 0.05, 0, 0.2); },
+  over:    () => { tone(392, 0.2, 'square', 0.06); tone(330, 0.2, 'square', 0.06, 0, 0.2); tone(196, 0.5, 'square', 0.06, 0, 0.4); },
+};
+
+// ---------- input ----------
+const KEYMAP = {
+  ArrowLeft: 'left', KeyA: 'left', ArrowRight: 'right', KeyD: 'right',
+  ArrowUp: 'jump', KeyW: 'jump', Space: 'fire', KeyP: 'pause',
+  Enter: 'start', NumpadEnter: 'start', KeyM: 'mute',
+  Digit1: 'pick1', Digit2: 'pick2', Digit3: 'pick3', Numpad1: 'pick1', Numpad2: 'pick2', Numpad3: 'pick3',
+  KeyC: 'menu', Escape: 'menu',
+};
+const keys = {}, hit = {};
+addEventListener('keydown', e => {
+  const k = KEYMAP[e.code];
+  if (!k) return;
+  e.preventDefault();
+  audioInit();
+  if (!keys[k]) hit[k] = true;
+  keys[k] = true;
+});
+addEventListener('keyup', e => {
+  const k = KEYMAP[e.code];
+  if (!k) return;
+  e.preventDefault();
+  keys[k] = false;
+});
+// Embedded (e.g. inside the Claude app) the page only gets keys after a click.
+addEventListener('pointerdown', () => { window.focus(); audioInit(); });
+addEventListener('blur', () => {
+  for (const k in keys) keys[k] = false;
+  if (state === 'play') state = 'pause';
+  beamSound(false);
+});
+
+// ---------- game state ----------
+let state = 'title', tick = 0, score = 0, hiScore = 0;
+let camX, p, buildings, blocks, enemies, shots, parts, texts, nextBX, spawnT, shakeT, shakeMag;
+let boss, strikes, nextBossX, bossCount, warnT, lockX, banner;
+let charIdx = 0;
+try { hiScore = parseInt(localStorage.getItem('kaijuStompHi'), 10) || 0; } catch (e) { hiScore = 0; }
+try { charIdx = clamp(parseInt(localStorage.getItem('kaijuStompChar'), 10) || 0, 0, CHARACTERS.length - 1); } catch (e) { charIdx = 0; }
+const hero = () => CHARACTERS[charIdx];
+
+function reset() {
+  camX = 0; score = 0; tick = 0;
+  p = { x: 30, y: GROUND, vx: 0, vy: 0, face: 1, onGround: true, hp: 20, maxHp: 20,
+        energy: 100, overheat: false, firing: false, inv: 0, walkT: 0, pushing: false, jumpBuf: 0, airTime: 0 };
+  buildings = []; blocks = []; enemies = []; shots = []; parts = []; texts = [];
+  nextBX = 96; spawnT = 150; shakeT = 0; shakeMag = 0;
+  boss = null; strikes = []; nextBossX = FIRST_BOSS_X; bossCount = 0; warnT = 0; lockX = null; banner = null;
+  generateCity();
+}
+
+function makeBuilding(x) {
+  const wc = randi(2, 5), hc = randi(3, 10);
+  const cells = [];
+  for (let i = 0; i < wc * hc; i++) cells.push({ hp: 1, lit: randi(0, 3) });
+  return { x, wc, hc, w: wc * CELL, cells, scheme: pick(SCHEMES), alive: wc * hc, total: wc * hc, razed: false, dirty: false };
+}
+function generateCity() {
+  while (nextBX < camX + W + 64) {
+    const b = makeBuilding(nextBX);
+    buildings.push(b);
+    nextBX += b.w + randi(4, 28);
+  }
+}
+
+function shake(t, m) { shakeT = Math.max(shakeT, t); shakeMag = Math.max(shakeMag, m); }
+function addScore(n, x, y, label) {
+  score += n;
+  if (label !== undefined) texts.push({ x, y, text: label, life: 45, color: PAL.gold });
+}
+function burst(x, y, n, colors, speed = 1.6, size = 2) {
+  for (let i = 0; i < n; i++) {
+    parts.push({ x, y, vx: rand(-speed, speed), vy: rand(-speed * 1.4, speed * 0.4), life: randi(14, 34),
+                 c: pick(colors), s: size, g: 0.12 });
+  }
+}
+const FIRE = [PAL.red, PAL.orange, PAL.gold, PAL.white];
+
+// ---------- building destruction ----------
+function breakCell(b, c, r) {
+  const i = r * b.wc + c;
+  if (!b.cells[i]) return;
+  b.cells[i] = null;
+  b.alive--; b.dirty = true;
+  const cx = b.x + c * CELL + 4, cy = GROUND - r * CELL - 4;
+  burst(cx, cy, 5, [b.scheme.body, b.scheme.body, PAL.lgray, b.scheme.win], 1.4, 2);
+  addScore(10);
+  SFX.crumble();
+  checkRazed(b);
+}
+function checkRazed(b) {
+  if (b.alive <= 0 && !b.razed) {
+    b.razed = true;
+    const bonus = 250 + b.total * 25;
+    addScore(bonus, b.x + b.w / 2 - 12, GROUND - 30, 'RAZED +' + bonus);
+    SFX.razed();
+  }
+}
+// Any cell left floating above a hole detaches and becomes a falling block.
+function settle(b) {
+  for (let c = 0; c < b.wc; c++) {
+    let hole = false;
+    for (let r = 0; r < b.hc; r++) {
+      const i = r * b.wc + c, cell = b.cells[i];
+      if (!cell) { hole = true; continue; }
+      if (hole) {
+        b.cells[i] = null; b.alive--;
+        blocks.push({ x: b.x + c * CELL, y: GROUND - (r + 1) * CELL, vx: rand(-0.5, 0.5), vy: rand(-0.6, 0),
+                      scheme: b.scheme, lit: cell.lit, bounces: 0 });
+      }
+    }
+  }
+  checkRazed(b);
+}
+function cellAt(x, y) {
+  if (y >= GROUND || y < 0) return null;
+  const r = Math.floor((GROUND - y) / CELL);
+  for (const b of buildings) {
+    if (x >= b.x && x < b.x + b.w) {
+      if (r >= b.hc) return null;
+      const c = Math.floor((x - b.x) / CELL);
+      const cell = b.cells[r * b.wc + c];
+      return cell ? { b, c, r, cell } : null;
+    }
+  }
+  return null;
+}
+// Apply damage to every cell overlapping rect. Returns true if any cell was touched.
+function damageCellsInRect(rect, dmg, onHit) {
+  let touched = false;
+  for (const b of buildings) {
+    if (b.x >= rect.x + rect.w || b.x + b.w <= rect.x) continue;
+    const c0 = Math.max(0, Math.floor((rect.x - b.x) / CELL));
+    const c1 = Math.min(b.wc - 1, Math.floor((rect.x + rect.w - 0.001 - b.x) / CELL));
+    const r0 = Math.max(0, Math.floor((GROUND - rect.y - rect.h) / CELL));
+    const r1 = Math.min(b.hc - 1, Math.ceil((GROUND - rect.y) / CELL) - 1);
+    for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) {
+      const cell = b.cells[r * b.wc + c];
+      if (!cell) continue;
+      touched = true;
+      cell.hp -= dmg;
+      if (onHit) onHit(b, c, r);
+      if (cell.hp <= 0) breakCell(b, c, r);
+    }
+  }
+  return touched;
+}
+
+// ---------- player ----------
+const spriteH = () => (p.onGround ? 32 : 28);
+const hitbox = () => ({ x: p.x + 6, y: p.y - 28, w: 16, h: 28 });
+const mouth = () => ({ x: p.face > 0 ? p.x + 26 : p.x + 1, y: p.y - spriteH() + 7 });
+
+function hurt(dmg) {
+  if (p.inv > 0 || state !== 'play') return;
+  p.hp = Math.max(0, p.hp - dmg);
+  p.inv = 90;
+  shake(10, 2);
+  SFX.hurt();
+  burst(p.x + 14, p.y - 16, 8, [PAL.white, hero().l, PAL.red]);
+  if (p.hp <= 0) gameOver();
+}
+
+function stomp() {
+  shake(12, 3);
+  SFX.stomp();
+  const fx = p.x + 14;
+  for (let i = 0; i < 16; i++) {
+    parts.push({ x: fx + rand(-24, 24), y: GROUND - 1, vx: rand(-2.2, 2.2), vy: rand(-2.6, -0.6),
+                 life: randi(14, 30), c: pick([PAL.lgray, PAL.cream, PAL.gray]), s: 2, g: 0.15 });
+  }
+  damageCellsInRect({ x: fx - 28, y: GROUND - 16, w: 56, h: 16 }, 99);
+  for (const e of enemies) if (e.type === 'tank' && Math.abs(e.x + e.w / 2 - fx) < 48) killEnemy(e);
+  if (boss && boss.type === 'dragon' && Math.abs(boss.x + boss.w / 2 - fx) < 50) damageBoss(1.5);
+}
+
+function updatePlayer() {
+  const move = (keys.right ? 1 : 0) - (keys.left ? 1 : 0);
+  let speed = p.firing ? 0.75 : 1.35;
+  if (p.pushing) speed *= 0.5;
+  p.vx = move * speed;
+  if (move) p.face = move;
+
+  if (hit.jump) p.jumpBuf = 6;
+  if (p.jumpBuf > 0) p.jumpBuf--;
+  if (p.jumpBuf > 0 && p.onGround) {
+    p.vy = -5.4; p.onGround = false; p.jumpBuf = 0; p.airTime = 0;
+    SFX.jump();
+  }
+  if (!keys.jump && p.vy < -2) p.vy = -2;           // variable jump height
+
+  p.vy = Math.min(p.vy + 0.28, 7);
+  p.x += p.vx;
+  p.y += p.vy;
+  if (!p.onGround) p.airTime++;
+  if (p.y >= GROUND) {
+    if (!p.onGround && p.airTime > 10) stomp();
+    p.y = GROUND; p.vy = 0; p.onGround = true;
+  }
+  p.x = Math.max(camX + 2, p.x);
+  if (lockX !== null) p.x = Math.min(p.x, camX + W - 30);   // boss arena walls
+  if (p.onGround && move) p.walkT += Math.abs(p.vx);
+  if (p.inv > 0) p.inv--;
+
+  // Atomic breath: drains energy, overheats at zero, recharges when idle.
+  if (keys.fire && !p.overheat && p.energy > 0) {
+    p.firing = true;
+    p.energy -= 0.8;
+    if (p.energy <= 0) { p.energy = 0; p.overheat = true; p.firing = false; }
+  } else {
+    p.firing = false;
+    p.energy = Math.min(100, p.energy + (p.overheat ? 0.45 : 0.35));
+    if (p.overheat && p.energy >= 40) p.overheat = false;
+  }
+  beamSound(p.firing);
+
+  // Body smash: shoving into buildings grinds cells down.
+  p.pushing = damageCellsInRect(hitbox(), 0.12);
+
+  if (p.firing) {
+    const m = mouth();
+    const beam = { x: p.face > 0 ? m.x : m.x - BEAM_LEN, y: m.y - 2, w: BEAM_LEN, h: 5 };
+    damageCellsInRect(beam, 0.2, (b, c, r) => {
+      if (Math.random() < 0.15) burst(b.x + c * CELL + 4, GROUND - r * CELL - 4, 1, [PAL.white, PAL.ice], 1.2, 1);
+    });
+    for (const e of enemies) {
+      if (!e.dead && overlap(beam, e)) {
+        e.hp -= 0.08; e.flash = 3;
+        if (e.hp <= 0) killEnemy(e);
+      }
+    }
+    for (const s of shots) {
+      if (!s.dead && overlap(beam, s)) { s.dead = true; burst(s.x, s.y, 4, [PAL.white, PAL.ice], 1, 1); addScore(5); }
+    }
+    if (bossHitBy(beam)) damageBoss(0.1);
+  }
+}
+
+// ---------- military ----------
+const diffMul = () => Math.max(0.45, 1 - camX / 6000);
+
+function spawnEnemy() {
+  const heliChance = Math.min(0.5, 0.25 + camX / 8000);
+  if (Math.random() < heliChance) {
+    const baseY = rand(104, 146);
+    enemies.push({ type: 'heli', x: camX + W + 10, y: baseY, baseY, w: 20, h: 10, hp: 1.4, t: 0,
+                   fire: randi(90, 140), face: -1, side: Math.random() < 0.8 ? 1 : -1, dist: rand(60, 110), flash: 0 });
+  } else {
+    enemies.push({ type: 'tank', x: camX + W + 6, y: GROUND - 8, w: 16, h: 8, hp: 1, t: 0,
+                   fire: randi(80, 130), face: -1, stop: rand(60, 120), flash: 0 });
+  }
+}
+function killEnemy(e) {
+  if (e.dead) return;
+  e.dead = true;
+  const cx = e.x + e.w / 2, cy = e.y + e.h / 2;
+  burst(cx, cy, 16, FIRE, 2, 2);
+  shake(6, 2);
+  SFX.explode();
+  const pts = e.type === 'tank' ? 100 : 150;
+  addScore(pts, cx - 8, cy - 8, '+' + pts);
+}
+function fireShell(e) {
+  const sx = e.face > 0 ? e.x + 16 : e.x - 2, sy = e.y + 1;
+  const tx = p.x + 14 + rand(-12, 12), ty = p.y - 14;
+  const dx = tx - sx, t = clamp(Math.abs(dx) / 1.8, 25, 90), g = 0.07;
+  shots.push({ kind: 'shell', x: sx, y: sy, vx: dx / t, vy: (ty - sy - 0.5 * g * t * t) / t, g, w: 3, h: 3, dmg: 2 });
+  burst(sx, sy, 3, [PAL.white, PAL.gold], 0.6, 1);
+  SFX.shoot();
+}
+function fireBullet(e) {
+  const sx = e.x + e.w / 2, sy = e.y + e.h;
+  const dx = p.x + 14 - sx, dy = p.y - 16 - sy, d = Math.hypot(dx, dy) || 1;
+  shots.push({ kind: 'bullet', x: sx, y: sy, vx: dx / d * 1.7, vy: dy / d * 1.7, g: 0, w: 2, h: 2, dmg: 1 });
+  SFX.shoot();
+}
+
+function updateEnemies() {
+  const px = p.x + 14, hb = hitbox();
+  for (const e of enemies) {
+    if (e.dead) continue;
+    e.t++;
+    if (e.flash > 0) e.flash--;
+    const cx = e.x + e.w / 2;
+    e.face = px > cx ? 1 : -1;
+    const onScreen = e.x < camX + W - 4 && e.x + e.w > camX + 4;
+    if (e.type === 'tank') {
+      if (Math.abs(px - cx) > e.stop) e.x += e.face * 0.45;
+      if (onScreen && --e.fire <= 0) { e.fire = randi(150, 230) * diffMul(); fireShell(e); }
+    } else {
+      const tx = Math.max(camX + 4, px + e.side * e.dist - e.w / 2);
+      e.x += clamp((tx - e.x) * 0.02, -1.2, 1.2);
+      e.y = e.baseY + Math.sin(e.t * 0.05) * 6;
+      if (onScreen && --e.fire <= 0) { e.fire = randi(120, 180) * diffMul(); fireBullet(e); }
+    }
+    if (overlap(hb, e)) {
+      if (e.type === 'tank') killEnemy(e);          // crushed underfoot
+      else { killEnemy(e); hurt(1); }               // swatted, but it hurts
+    }
+    if (e.x + e.w < camX - 40) e.dead = true;
+  }
+  enemies = enemies.filter(e => !e.dead);
+
+  spawnT--;
+  const maxEnemies = Math.min(7, 2 + Math.floor(camX / 700));
+  if (spawnT <= 0) {
+    if (enemies.length < maxEnemies && !boss && warnT === 0) spawnEnemy();   // military holds back during boss fights
+    spawnT = randi(110, 190) * diffMul();
+  }
+}
+
+function updateShots() {
+  const hb = hitbox();
+  for (const s of shots) {
+    if (s.dead) continue;
+    s.vy += s.g; s.x += s.vx; s.y += s.vy;
+    if (s.kind === 'dust') s.x += Math.sin((tick + s.ph) * 0.12) * 0.5;   // moth scales drift as they fall
+    if (s.y >= GROUND - 1) {
+      s.dead = true;
+      burst(s.x, GROUND - 2, 5, FIRE, 1, 1);
+      continue;
+    }
+    if (s.x < camX - 40 || s.x > camX + W + 40 || s.y < -40) { s.dead = true; continue; }
+    if (overlap(s, hb)) {
+      s.dead = true;
+      burst(s.x, s.y, 6, FIRE, 1.2, 1);
+      hurt(s.dmg);
+      continue;
+    }
+    const hitCell = cellAt(s.x + 1, s.y + 1);         // stray fire wrecks buildings too
+    if (hitCell) {
+      s.dead = true;
+      burst(s.x, s.y, 4, FIRE, 1, 1);
+      hitCell.cell.hp -= 0.6;
+      if (hitCell.cell.hp <= 0) breakCell(hitCell.b, hitCell.c, hitCell.r);
+    }
+  }
+  shots = shots.filter(s => !s.dead);
+}
+
+// ---------- bosses ----------
+const nextBossType = () => (bossCount % 2 === 0 ? 'moth' : 'dragon');
+
+function bossBox(b) {
+  return b.type === 'moth'
+    ? { x: b.x + 2, y: b.y + 2, w: b.w - 4, h: b.h - 4 }
+    : { x: b.x + 3, y: b.y + 2, w: b.w - 6, h: b.h - 2 };
+}
+// Beam/attack hit test: the body, plus each of TRIDRA's three heads.
+function bossHitBy(rect) {
+  if (!boss) return false;
+  if (overlap(rect, bossBox(boss))) return true;
+  if (boss.type !== 'dragon') return false;
+  return dragonHeads(boss).some(h => overlap(rect, { x: h.x, y: h.y, w: DRAGON.head.w, h: DRAGON.head.h }));
+}
+
+function spawnBoss() {
+  const type = nextBossType();
+  const tier = 1 + 0.3 * Math.floor(bossCount / 2);   // each repeat is a bit tougher
+  lockX = camX;
+  const base = { type, name: BOSSES[type].name, x: camX + W + 8, t: 0, phase: 'enter', flash: 0, dying: 0, face: -1 };
+  if (type === 'moth') {
+    boss = { ...base, y: MOTH_Y, w: MOTH.a.w, h: MOTH.a.h, maxHp: 22 * tier, atk: 90 };
+  } else {
+    boss = { ...base, y: GROUND - DRAGON.body.h, w: DRAGON.body.w, h: DRAGON.body.h, maxHp: 32 * tier,
+             atk: 100, dir: -1, mouthT: 0, nextAtk: 'triple' };
+  }
+  boss.hp = boss.maxHp;
+}
+
+function damageBoss(dmg) {
+  if (!boss || boss.dying) return;
+  boss.hp -= dmg;
+  boss.flash = 3;
+  if (boss.hp <= 0) {
+    boss.hp = 0;
+    boss.dying = 70;
+    strikes = [];
+    shots = shots.filter(s => s.kind !== 'dust' && s.kind !== 'bolt');
+  }
+}
+
+function finishBoss(b) {
+  const bonus = BOSSES[b.type].bonus;
+  addScore(bonus);
+  p.hp = Math.min(p.maxHp, p.hp + BOSS_HEAL);
+  banner = { text: b.name + ' DEFEATED!', sub: '+' + bonus + '   HP UP', t: 180 };
+  SFX.start(); SFX.razed();
+  boss = null; lockX = null;
+  bossCount++;
+  nextBossX = camX + BOSS_GAP;
+}
+
+function updateBoss() {
+  if (warnT > 0) {
+    warnT--;
+    if (warnT % 30 === 0) tone(440, 0.25, 'square', 0.05, 880);       // siren
+    if (warnT === 0) spawnBoss();
+    return;
+  }
+  if (!boss) { if (camX >= nextBossX) warnT = WARN_FRAMES; return; }
+  const b = boss;
+  b.t++;
+  if (b.flash > 0) b.flash--;
+  if (b.dying > 0) {
+    b.dying--;
+    if (b.dying % 4 === 0) { burst(b.x + rand(0, b.w), b.y + rand(0, b.h), 10, FIRE, 2, 2); boom(0.25, 0.12); shake(6, 2); }
+    if (b.dying === 0) finishBoss(b);
+    return;
+  }
+  if (b.type === 'moth') updateMoth(b); else updateDragon(b);
+  if (overlap(hitbox(), bossBox(b))) {
+    hurt(2);
+    p.x += (p.x + 14 < b.x + b.w / 2) ? -4 : 4;                      // knockback
+  }
+}
+
+// LUMINA: drifts in a lazy figure-eight, sprinkles dust, and dives at where you were standing.
+function updateMoth(b) {
+  if (b.phase === 'enter') {
+    b.x -= 1.2; b.y = MOTH_Y + Math.sin(b.t * 0.05) * 8;
+    if (b.x < camX + W - 80) b.phase = 'fly';
+    return;
+  }
+  if (b.phase === 'fly') {
+    const tx = camX + W / 2 + Math.sin(b.t * 0.013) * 86 - b.w / 2, ty = MOTH_Y + Math.sin(b.t * 0.031) * 12;
+    b.x += (tx - b.x) * 0.03; b.y += (ty - b.y) * 0.05;
+    if (--b.atk <= 0) {
+      if (Math.random() < 0.6) { dropDust(b); b.atk = randi(90, 130); }
+      else { b.phase = 'dive'; b.diveT = 0; b.diveX = p.x + 14 - b.w / 2; b.atk = randi(120, 160); tone(300, 0.3, 'sawtooth', 0.04, 900); }
+    }
+  } else if (b.phase === 'dive') {
+    b.diveT++;
+    const dx = b.diveX - b.x, dy = GROUND - b.h - 6 - b.y, d = Math.hypot(dx, dy) || 1, sp = 2.4;
+    if (d > sp) { b.x += dx / d * sp; b.y += dy / d * sp; }
+    if (d <= sp || b.diveT > 70) b.phase = 'rise';
+  } else if (b.phase === 'rise') {
+    b.y -= 1.4;
+    if (b.y <= MOTH_Y) b.phase = 'fly';
+  }
+  b.x = clamp(b.x, camX - 4, camX + W - b.w + 4);
+}
+function dropDust(b) {
+  for (let i = 0; i < 6; i++) {
+    shots.push({ kind: 'dust', x: b.x + 3 + i * 5.4, y: b.y + b.h - 4, vx: 0, vy: rand(0.5, 0.9), g: 0.004,
+                 w: 3, h: 3, dmg: 1, ph: randi(0, 60) });
+  }
+  tone(1200, 0.2, 'triangle', 0.03, 600);
+}
+
+// TRIDRA: paces the right side of the arena, alternating a triple bolt with a telegraphed lightning storm.
+function updateDragon(b) {
+  b.face = p.x + 14 > b.x + b.w / 2 ? 1 : -1;
+  if (b.mouthT > 0) b.mouthT--;
+  if (b.phase === 'enter') {
+    b.x -= 0.6;
+    if (b.x < camX + W - 70) b.phase = 'walk';
+    return;
+  }
+  b.x += b.dir * 0.3;
+  if (b.x < camX + W * 0.45) b.dir = 1;
+  if (b.x > camX + W - b.w - 6) b.dir = -1;
+  if (--b.atk <= 0) {
+    if (b.nextAtk === 'triple') { tripleBolt(b); b.nextAtk = 'storm'; b.atk = randi(110, 150); }
+    else { lightningStorm(); b.nextAtk = 'triple'; b.atk = randi(140, 180); }
+  }
+}
+function dragonHeads(b) {
+  return HEAD_SLOTS.map(s => {
+    const bob = Math.round(Math.sin(b.t * 0.06 + s.ph) * 3);
+    const rx = b.face > 0 ? s.x : b.w - s.x - DRAGON.head.w;
+    return { x: b.x + rx, y: b.y + s.y + bob };
+  });
+}
+function tripleBolt(b) {
+  b.mouthT = 24;
+  for (const h of dragonHeads(b)) {
+    const sx = b.face > 0 ? h.x + 10 : h.x, sy = h.y + 4;
+    const dx = p.x + 14 - sx, dy = p.y - 16 - sy + rand(-10, 10), d = Math.hypot(dx, dy) || 1;
+    shots.push({ kind: 'bolt', x: sx, y: sy, vx: dx / d * 2, vy: dy / d * 2, g: 0, w: 4, h: 4, dmg: 2 });
+  }
+  tone(1500, 0.15, 'sawtooth', 0.04, 300);
+}
+function lightningStorm() {
+  const px = p.x + 14;
+  [0, -36, 36].forEach((off, i) => strikes.push({ x: clamp(px + off, camX + 6, camX + W - 6), t: 50 + i * 12, hitT: 0 }));
+}
+function updateStrikes() {
+  for (const s of strikes) {
+    if (s.t > 0) {
+      s.t--;
+      if (s.t === 0) {
+        s.hitT = 12;
+        shake(6, 2); boom(0.3, 0.15);
+        damageCellsInRect({ x: s.x - 3, y: 24, w: 6, h: GROUND - 24 }, 99);
+        burst(s.x, GROUND - 2, 8, [PAL.white, PAL.ice, PAL.gold], 1.6, 2);
+      }
+    } else {
+      if (s.hitT > 6 && Math.abs(p.x + 14 - s.x) < 10) hurt(2);
+      s.hitT--;
+    }
+  }
+  strikes = strikes.filter(s => s.t > 0 || s.hitT > 0);
+}
+
+// ---------- debris ----------
+function shatterBlock(k) {
+  k.dead = true;
+  burst(k.x + 4, k.y + 4, 6, [k.scheme.body, k.scheme.body, k.scheme.win, PAL.lgray], 1.5, 2);
+  addScore(5);
+  SFX.crumble();
+}
+function updateBlocks() {
+  for (const k of blocks) {
+    if (k.dead) continue;
+    k.vy = Math.min(k.vy + 0.25, 6);
+    k.x += k.vx; k.y += k.vy;
+    // landing on an intact cell smashes it (chain-reaction collapses)
+    const below = cellAt(k.x + 4, k.y + 8);
+    if (below && k.vy > 0) {
+      below.cell.hp -= 0.5;
+      if (below.cell.hp <= 0) breakCell(below.b, below.c, below.r);
+      shatterBlock(k);
+      continue;
+    }
+    for (const e of enemies) {
+      if (!e.dead && e.type === 'tank' && overlap({ x: k.x, y: k.y, w: 8, h: 8 }, e)) { killEnemy(e); shatterBlock(k); break; }
+    }
+    if (k.dead) continue;
+    if (k.y + 8 >= GROUND) {
+      k.y = GROUND - 8;
+      if (k.bounces < 1) { k.vy = -k.vy * 0.3; k.vx *= 0.6; k.bounces++; shake(3, 1); }
+      else shatterBlock(k);
+    }
+  }
+  blocks = blocks.filter(k => !k.dead && k.x > camX - 60);
+}
+
+function updateParticles() {
+  for (const q of parts) { q.vy += q.g; q.x += q.vx; q.y += q.vy; q.life--; if (q.y > GROUND - 1 && q.vy > 0) { q.y = GROUND - 1; q.vy *= -0.3; q.vx *= 0.7; } }
+  parts = parts.filter(q => q.life > 0);
+  for (const t of texts) { t.y -= 0.4; t.life--; }
+  texts = texts.filter(t => t.life > 0);
+}
+
+function gameOver() {
+  state = 'over';
+  p.firing = false;
+  beamSound(false);
+  burst(p.x + 14, p.y - 16, 30, FIRE, 2.4, 2);
+  shake(20, 3);
+  SFX.over();
+  if (score > hiScore) {
+    hiScore = score;
+    try { localStorage.setItem('kaijuStompHi', String(hiScore)); } catch (e) { /* storage unavailable */ }
+  }
+}
+
+// ---------- main update ----------
+function update() {
+  if (hit.mute) { muted = !muted; if (muted) beamSound(false); }
+
+  if (state === 'title') {
+    tick++;
+    const prev = charIdx;
+    if (hit.left) charIdx = mod(charIdx - 1, CHARACTERS.length);
+    if (hit.right) charIdx = mod(charIdx + 1, CHARACTERS.length);
+    if (hit.pick1) charIdx = 0;
+    if (hit.pick2) charIdx = 1;
+    if (hit.pick3) charIdx = 2;
+    if (charIdx !== prev) tone(660, 0.06, 'square', 0.04);
+    if (hit.start || hit.fire) {
+      try { localStorage.setItem('kaijuStompChar', String(charIdx)); } catch (e) { /* storage unavailable */ }
+      reset(); state = 'play'; SFX.start();
+    }
+  } else if (state === 'play') {
+    if (hit.pause) { state = 'pause'; beamSound(false); }
+    else {
+      tick++;
+      updatePlayer();
+      for (const b of buildings) if (b.dirty) { b.dirty = false; settle(b); }
+      updateBlocks();
+      updateEnemies();
+      updateBoss();
+      updateStrikes();
+      updateShots();
+      updateParticles();
+      if (banner && --banner.t <= 0) banner = null;
+      const camTarget = Math.max(camX, p.x - 96);
+      camX = lockX !== null ? lockX : camX + Math.min(camTarget - camX, CAM_EASE);
+      generateCity();
+      buildings = buildings.filter(b => b.x + b.w > camX - 40 && b.alive > 0);
+    }
+  } else if (state === 'pause') {
+    if (hit.pause || hit.start) state = 'play';
+  } else if (state === 'over') {
+    tick++;
+    for (const b of buildings) if (b.dirty) { b.dirty = false; settle(b); }
+    updateBlocks();
+    updateParticles();
+    if (hit.start) { reset(); state = 'play'; SFX.start(); }
+    else if (hit.menu) { reset(); state = 'title'; }
+  }
+  if (shakeT > 0) shakeT--; else shakeMag = 0;
+  for (const k in hit) hit[k] = false;
+}
+
+// ---------- rendering ----------
+function drawSkyline(par, color, minH, maxH, colW, seed, windows) {
+  const off = camX * par;
+  const start = Math.floor(off / colW) - 1;
+  for (let i = start; i < start + Math.ceil(W / colW) + 2; i++) {
+    const h = minH + Math.floor(hash(i * 7 + seed) * (maxH - minH));
+    const x = Math.round(i * colW - off);
+    ctx.fillStyle = color;
+    ctx.fillRect(x, GROUND - h, colW, h);
+    if (hash(i * 13 + seed) < 0.3) ctx.fillRect(x + (colW >> 1), GROUND - h - 6, 1, 6);   // antenna
+    if (windows) {
+      ctx.fillStyle = PAL.gold;
+      for (let wy = GROUND - h + 4; wy < GROUND - 4; wy += 6) {
+        for (let wx = 2; wx < colW - 2; wx += 4) {
+          if (hash(i * 131 + wy * 17 + wx) < 0.22) ctx.fillRect(x + wx, wy, 1, 2);
+        }
+      }
+    }
+  }
+}
+
+function drawGround(ox) {
+  ctx.fillStyle = PAL.gray; ctx.fillRect(-4, GROUND, W + 8, 4);
+  ctx.fillStyle = PAL.lgray; ctx.fillRect(-4, GROUND, W + 8, 1);
+  ctx.fillStyle = PAL.black;
+  for (let x = -mod(ox, 16); x < W + 4; x += 16) ctx.fillRect(x, GROUND + 1, 1, 3);
+  ctx.fillRect(-4, GROUND + 4, W + 8, H - GROUND);
+  ctx.fillStyle = PAL.gold;
+  for (let x = -mod(ox, 24); x < W + 4; x += 24) ctx.fillRect(x, GROUND + 13, 10, 2);
+}
+
+function drawBlock(x, y, s, lit, hp, L, R, T, B) {
+  ctx.fillStyle = s.body; ctx.fillRect(x, y, 8, 8);
+  ctx.fillStyle = (lit & 1) ? s.win : s.dark; ctx.fillRect(x + 1, y + 2, 2, 3);
+  ctx.fillStyle = (lit & 2) ? s.win : s.dark; ctx.fillRect(x + 5, y + 2, 2, 3);
+  ctx.fillStyle = s.edge;
+  ctx.fillRect(x, y + 7, 8, 1);
+  if (L) ctx.fillRect(x, y, 1, 8);
+  if (R) ctx.fillRect(x + 7, y, 1, 8);
+  if (T) ctx.fillRect(x, y, 8, 1);
+  if (B) ctx.fillRect(x, y + 7, 8, 1);
+  if (hp < 0.67) { ctx.fillStyle = PAL.black; ctx.fillRect(x + 3, y + 1, 1, 1); ctx.fillRect(x + 4, y + 2, 1, 2); ctx.fillRect(x + 3, y + 4, 1, 2); }
+  if (hp < 0.34) { ctx.fillRect(x + 6, y + 5, 1, 2); ctx.fillRect(x + 1, y + 5, 2, 1); }
+}
+
+function drawBuildings(ox) {
+  for (const b of buildings) {
+    const bx = b.x - ox;
+    if (bx > W || bx + b.w < 0) continue;
+    for (let r = 0; r < b.hc; r++) for (let c = 0; c < b.wc; c++) {
+      const cell = b.cells[r * b.wc + c];
+      if (!cell) continue;
+      const L = c === 0 || !b.cells[r * b.wc + c - 1];
+      const R = c === b.wc - 1 || !b.cells[r * b.wc + c + 1];
+      const T = r === b.hc - 1 || !b.cells[(r + 1) * b.wc + c];
+      drawBlock(Math.round(bx + c * CELL), GROUND - (r + 1) * CELL, b.scheme, cell.lit, cell.hp, L, R, T, false);
+    }
+  }
+}
+
+function drawPlayer(ox) {
+  if (state === 'play' && p.inv > 0 && (p.inv >> 2) & 1) return;
+  let base;
+  if (!p.onGround) base = 'j';
+  else if (Math.abs(p.vx) > 0) base = (Math.floor(p.walkT / 7) & 1) ? 'b' : 'a';
+  else base = 'a';
+  const spr = KAIJU_SPR[charIdx][base + (p.firing ? 'Fire' : '')];
+  ctx.drawImage(p.face > 0 ? spr.r : spr.l, Math.round(p.x - ox), Math.round(p.y - spr.h));
+}
+
+function drawBeam(ox) {
+  const m = mouth();
+  const x0 = Math.round(m.x - ox), y = Math.round(m.y);
+  const sx = p.face > 0 ? x0 : x0 - BEAM_LEN;
+  const fl = (tick >> 1) & 1;
+  ctx.fillStyle = PAL.blue;  ctx.fillRect(sx, y - 3 - fl, BEAM_LEN, 7 + fl * 2);
+  ctx.fillStyle = PAL.sky;   ctx.fillRect(sx, y - 2, BEAM_LEN, 5);
+  ctx.fillStyle = PAL.white; ctx.fillRect(sx, y - 1, BEAM_LEN, 2);
+  ctx.fillStyle = PAL.ice;
+  for (let i = (tick * 3) % 12; i < BEAM_LEN; i += 12) {
+    const xx = p.face > 0 ? x0 + i : x0 - i;
+    ctx.fillRect(xx, y - 4, 2, 9);
+  }
+  ctx.fillStyle = PAL.white; ctx.fillRect(x0 - 3, y - 4 - fl, 6, 9 + fl * 2);
+  const tip = p.face > 0 ? x0 + BEAM_LEN : x0 - BEAM_LEN;
+  ctx.fillStyle = fl ? PAL.white : PAL.ice; ctx.fillRect(tip - 3, y - 5, 6, 11);
+}
+
+function drawEnemies(ox) {
+  for (const e of enemies) {
+    const x = Math.round(e.x - ox), y = Math.round(e.y);
+    let spr;
+    if (e.type === 'tank') spr = (Math.floor(e.x / 2) & 1) ? TANK_A : TANK_B;
+    else spr = (e.t >> 1) & 1 ? HELI_A : HELI_B;
+    if (e.flash > 0 && (e.flash & 1)) { ctx.fillStyle = PAL.white; ctx.fillRect(x, y, e.w, e.h); }
+    else ctx.drawImage(e.face > 0 ? spr.r : spr.l, x, y);
+  }
+}
+
+function drawShots(ox) {
+  for (const s of shots) {
+    const x = Math.round(s.x - ox), y = Math.round(s.y);
+    if (s.kind === 'shell') {
+      ctx.fillStyle = PAL.black; ctx.fillRect(x - 1, y - 1, 5, 5);
+      ctx.fillStyle = (tick >> 2) & 1 ? PAL.gold : PAL.orange; ctx.fillRect(x, y, 3, 3);
+    } else if (s.kind === 'dust') {
+      ctx.fillStyle = [PAL.gold, PAL.white, PAL.lpink][((tick >> 2) + s.ph) % 3];
+      ctx.fillRect(x, y + 1, 3, 1); ctx.fillRect(x + 1, y, 1, 3);
+    } else if (s.kind === 'bolt') {
+      const z = (tick >> 1) & 1;
+      ctx.fillStyle = PAL.ice; ctx.fillRect(x - 1, y - 1, 6, 6);
+      ctx.fillStyle = PAL.white; ctx.fillRect(x + z, y, 2, 2); ctx.fillRect(x + 2 - z, y + 2, 2, 2);
+    } else {
+      ctx.fillStyle = (tick >> 1) & 1 ? PAL.white : PAL.gold; ctx.fillRect(x, y, 2, 2);
+    }
+  }
+}
+
+function drawNeck(ax, ay, hx, hy) {
+  for (let i = 1; i <= 5; i++) {
+    const t = i / 6;
+    const x = Math.round(ax + (hx - ax) * t), y = Math.round(ay + (hy - ay) * t - Math.sin(Math.PI * t) * 5);
+    ctx.fillStyle = PAL.black;  ctx.fillRect(x - 3, y - 3, 6, 6);
+    ctx.fillStyle = PAL.gold;   ctx.fillRect(x - 2, y - 2, 4, 4);
+    ctx.fillStyle = PAL.orange; ctx.fillRect(x - 2, y + 1, 4, 1);
+  }
+}
+
+function drawBoss(ox) {
+  if (!boss) return;
+  const b = boss;
+  if (b.dying && (b.dying >> 2) & 1) return;
+  const white = b.flash > 0 && (b.flash & 1);
+  const x = Math.round(b.x - ox), y = Math.round(b.y);
+  if (b.type === 'moth') {
+    const up = (b.t >> (b.phase === 'dive' ? 2 : 3)) & 1;          // flaps faster while diving
+    const spr = white ? (up ? MOTH.fa : MOTH.fb) : (up ? MOTH.a : MOTH.b);
+    ctx.drawImage(spr.r, x, y);
+    return;
+  }
+  const heads = dragonHeads(b);
+  const ax = b.x + (b.face > 0 ? NECK_ANCHOR.x : b.w - NECK_ANCHOR.x) - ox, ay = b.y + NECK_ANCHOR.y;
+  for (const h of heads) {
+    const hx = h.x + (b.face > 0 ? 2 : DRAGON.head.w - 3) - ox;
+    drawNeck(Math.round(ax), Math.round(ay), Math.round(hx), Math.round(h.y + 4));
+  }
+  const body = white ? DRAGON.bodyF : DRAGON.body;
+  ctx.drawImage(b.face > 0 ? body.r : body.l, x, y);
+  const head = white ? DRAGON.headF : (b.mouthT > 0 ? DRAGON.headOpen : DRAGON.head);
+  for (const h of heads) ctx.drawImage(b.face > 0 ? head.r : head.l, Math.round(h.x - ox), Math.round(h.y));
+}
+
+function drawStrikes(ox) {
+  for (const s of strikes) {
+    const x = Math.round(s.x - ox);
+    if (s.t > 0) {                                                   // telegraph: blinking target + dotted line
+      if ((s.t >> 2) & 1) {
+        ctx.fillStyle = PAL.gold;
+        ctx.fillRect(x - 3, GROUND - 3, 7, 2); ctx.fillRect(x - 1, GROUND - 6, 3, 2);
+        for (let yy = 30; yy < GROUND - 8; yy += 8) ctx.fillRect(x, yy, 1, 3);
+      }
+    } else {                                                         // the bolt itself
+      for (let yy = 24; yy < GROUND; yy += 6) {
+        const j = ((yy * 7 + tick) % 5) - 2;
+        ctx.fillStyle = PAL.ice;   ctx.fillRect(x + j - 2, yy, 5, 6);
+        ctx.fillStyle = PAL.white; ctx.fillRect(x + j - 1, yy, 3, 6);
+      }
+    }
+  }
+}
+
+function drawBossOverlays() {
+  const blink = (tick >> 3) & 1;
+  if (boss) {
+    drawText(boss.name, 6, 207, PAL.gold);
+    bar(34, 207, 160, 5, boss.hp / boss.maxHp, boss.type === 'moth' ? PAL.peach : PAL.red);
+  }
+  if (warnT > 0 && blink) {
+    centerText('WARNING', 56, PAL.red, 3);
+    centerText(BOSSES[nextBossType()].name + ' APPROACHES', 78, PAL.gold);
+  }
+  if (banner) {
+    centerText(banner.text, 62, blink ? PAL.gold : PAL.white, 2);
+    centerText(banner.sub, 78, PAL.lgreen);
+  }
+}
+
+function bar(x, y, w, h, frac, col) {
+  ctx.fillStyle = PAL.white; ctx.fillRect(x - 1, y - 1, w + 2, h + 2);
+  ctx.fillStyle = PAL.black; ctx.fillRect(x, y, w, h);
+  ctx.fillStyle = col; ctx.fillRect(x, y, Math.round(w * clamp(frac, 0, 1)), h);
+}
+
+function drawHUD() {
+  ctx.fillStyle = PAL.black; ctx.fillRect(0, 0, W, 22);
+  ctx.fillStyle = PAL.gray; ctx.fillRect(0, 22, W, 1);
+  drawText('SCORE', 6, 4, PAL.white);
+  drawText(pad(score, 7), 28, 4, PAL.gold);
+  const hi = 'HI ' + pad(Math.max(hiScore, score), 7);
+  drawText(hi, W - 6 - textW(hi), 4, PAL.white);
+  if (state !== 'title') centerText(hero().name, 4, hero().l);
+  const blink = (tick >> 3) & 1;
+  drawText('HP', 6, 13, PAL.white);
+  bar(16, 13, 60, 5, p.hp / p.maxHp, p.hp <= 5 && blink ? PAL.red : PAL.lgreen);
+  drawText('BEAM', 86, 13, PAL.white);
+  bar(104, 13, 60, 5, p.energy / 100, p.overheat ? (blink ? PAL.red : PAL.orange) : PAL.sky);
+  if (p.overheat) drawText('OVERHEAT', 170, 13, blink ? PAL.red : PAL.gold);
+  if (muted) drawText('MUTE', W - 6 - textW('MUTE'), 13, PAL.gray);
+}
+
+function panel(y, h) {
+  ctx.fillStyle = PAL.black; ctx.fillRect(24, y, W - 48, h);
+  ctx.fillStyle = PAL.white; ctx.fillRect(24, y, W - 48, 1); ctx.fillRect(24, y + h - 1, W - 48, 1);
+  ctx.fillRect(24, y, 1, h); ctx.fillRect(W - 25, y, 1, h);
+}
+
+function render() {
+  ctx.fillStyle = PAL.black; ctx.fillRect(0, 0, W, H);
+  ctx.drawImage(skyCanvas, 0, 0);
+  drawSkyline(0.2, PAL.navy, 22, 62, 12, 11, false);     // tops stay inside the purple horizon band
+  drawSkyline(0.45, PAL.black, 14, 48, 16, 97, true);
+
+  const sx = shakeT > 0 ? randi(-shakeMag, shakeMag) : 0;
+  const sy = shakeT > 0 ? randi(-shakeMag, shakeMag) : 0;
+  const ox = Math.round(camX);
+  ctx.save();
+  ctx.translate(sx, sy);
+  drawGround(ox);
+  drawBuildings(ox);
+  for (const k of blocks) drawBlock(Math.round(k.x - ox), Math.round(k.y), k.scheme, k.lit, 1, true, true, true, true);
+  drawEnemies(ox);
+  drawBoss(ox);
+  if (state !== 'over' || (tick >> 3) & 1) drawPlayer(ox);
+  if (p.firing && state === 'play') drawBeam(ox);
+  drawStrikes(ox);
+  drawShots(ox);
+  for (const q of parts) { ctx.fillStyle = q.c; ctx.fillRect(Math.round(q.x - ox), Math.round(q.y), q.s, q.s); }
+  for (const t of texts) drawText(t.text, Math.round(t.x - ox), Math.round(t.y), t.life > 10 || (t.life & 1) ? t.color : PAL.white);
+  ctx.restore();
+
+  drawHUD();
+  if (state === 'play' || state === 'pause') drawBossOverlays();
+
+  const blink = (tick >> 4) & 1;
+  if (state === 'title') {
+    panel(27, 182);
+    centerText('KAIJU', 33, hero().g, 4);
+    centerText('STOMP', 55, PAL.gold, 4);
+    centerText('CHOOSE YOUR KAIJU', 82, PAL.ice);
+    // character select: three kaiju side by side, selected one framed and bobbing
+    CHARACTERS.forEach((ch, i) => {
+      const cx = 64 + i * 64, sel = i === charIdx;
+      const spr = KAIJU_SPR[i][sel && (tick >> 4) & 1 ? 'b' : 'a'];
+      const top = 92 - (sel && (tick >> 3) & 1 ? 1 : 0);
+      if (sel) {
+        ctx.fillStyle = (tick >> 3) & 1 ? PAL.white : ch.l;
+        ctx.fillRect(cx - 20, 89, 40, 1); ctx.fillRect(cx - 20, 136, 40, 1);
+        ctx.fillRect(cx - 20, 89, 1, 48); ctx.fillRect(cx + 19, 89, 1, 48);
+      }
+      ctx.drawImage(spr.r, cx - 14, top);
+      const label = (i + 1) + ' ' + ch.name;
+      drawText(label, Math.round(cx - textW(label) / 2), 140, sel ? ch.l : PAL.gray);
+    });
+    centerText('LEFT / RIGHT OR 1 2 3 TO CHOOSE', 152, PAL.white);
+    centerText('ARROWS / WASD  MOVE + JUMP', 163, PAL.gray);
+    centerText('SPACE  ATOMIC BREATH    P PAUSE    M MUTE', 172, PAL.gray);
+    if (blink) centerText('PRESS ENTER', 186, PAL.gold, 2);
+  } else if (state === 'pause') {
+    panel(92, 32);
+    centerText('PAUSED', 100, PAL.white, 2);
+    centerText('PRESS P TO RESUME', 114, PAL.gray);
+  } else if (state === 'over') {
+    panel(70, 80);
+    centerText('GAME OVER', 80, PAL.red, 3);
+    centerText('SCORE ' + pad(score, 7), 104, PAL.white);
+    if (score >= hiScore && score > 0) centerText('NEW HIGH SCORE!', 114, blink ? PAL.gold : PAL.white);
+    centerText('PRESS ENTER TO RETRY', 128, blink ? PAL.gold : PAL.white);
+    centerText('C  CHANGE KAIJU', 138, PAL.gray);
+  }
+  if (!document.hasFocus()) {
+    panel(94, 36);
+    centerText('CLICK TO PLAY', 101, (tick >> 4) & 1 || state !== 'title' ? PAL.gold : PAL.white, 2);
+    centerText('THEN USE THE KEYBOARD', 118, PAL.white);
+  }
+}
+
+// ---------- fixed-timestep loop ----------
+reset();
+let last = performance.now(), acc = 0;
+function frame(now) {
+  acc += Math.min(250, now - last);
+  last = now;
+  while (acc >= STEP) { update(); acc -= STEP; }
+  render();
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

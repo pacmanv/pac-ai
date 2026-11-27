@@ -1,0 +1,4 @@
+{
+  "redirects": [{ "source": "/kaiju-stomp", "destination": "/kaiju-stomp/", "permanent": true }],
+  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
+}
