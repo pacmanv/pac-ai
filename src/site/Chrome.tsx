@@ -1,10 +1,14 @@
 import { useEffect, useRef, useState, type ReactNode, type Ref } from 'react'
-import { fx } from '../fx/motion'
+import { fontsReady, fx } from '../fx/motion'
+import { createPixelText, type PixelText } from '../fx/pixelText'
 import markUrl from '../assets/pac-ai-mark.svg'
 import { CONTACT_EMAIL, CTA, INSTAGRAM, YEAR } from './content'
 import { PAGES, linkHandler, type PagePath } from './routes'
 
 type Navigate = (to: PagePath) => void
+
+/** fired on window when a page transition starts */
+export const NAVIGATE_EVENT = 'pac:navigate'
 
 /** An in-site link that runs the page transition on a plain click. */
 export function NavLink({
@@ -43,13 +47,51 @@ export function Header({
   current,
   onNavigate,
   menuButton,
+  reduced,
+  introDelay,
 }: {
   current: PagePath
   onNavigate: Navigate
   menuButton: ReactNode
+  reduced: boolean
+  /** seconds until the intro loader lifts, when the name first pixelates in */
+  introDelay: number
 }) {
   const [hidden, setHidden] = useState(false)
   const [solid, setSolid] = useState(false)
+  const nameRef = useRef<HTMLSpanElement>(null)
+
+  // "Pac AI" pixelates as the intro lifts, on every page change, and when hovered
+  useEffect(() => {
+    const name = nameRef.current
+    if (reduced || !name) return
+    let px: PixelText | null = null
+    let dead = false
+    const onNavigateStart = () => px?.reveal(0.12)
+    // hovering the logo bursts the name into pixels and back (at most every 1.5s)
+    let nextHover = 0
+    const onEnter = (e: PointerEvent) => {
+      if (e.pointerType !== 'mouse' || performance.now() < nextHover) return
+      nextHover = performance.now() + 1500
+      px?.reveal(0)
+    }
+    const brand = name.parentElement
+    brand?.addEventListener('pointerenter', onEnter)
+    fontsReady.then(() => {
+      if (dead) return
+      px = createPixelText(name, { startVisible: true, stagger: 0.06, speed: 0.9, blockScale: 2.8 })
+      px.reveal(introDelay)
+    })
+    window.addEventListener(NAVIGATE_EVENT, onNavigateStart)
+    return () => {
+      dead = true
+      window.removeEventListener(NAVIGATE_EVENT, onNavigateStart)
+      brand?.removeEventListener('pointerenter', onEnter)
+      px?.destroy()
+    }
+    // the intro delay only matters on first mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reduced])
 
   useEffect(() => {
     let last = window.scrollY
@@ -68,7 +110,9 @@ export function Header({
     <header className="hdr" data-hidden={hidden || undefined} data-solid={solid || undefined}>
       <NavLink to="/" onNavigate={onNavigate} className="hdr__brand" data-magnetic="0.25" aria-current={current === '/' ? 'page' : undefined}>
         <img className="hdr__mark" src={markUrl} alt="" width="36" height="36" />
-        Pac AI
+        <span ref={nameRef} className="hdr__name">
+          Pac AI
+        </span>
       </NavLink>
       <nav className="hdr__nav" aria-label="Main">
         {PAGES.map((p) => (
