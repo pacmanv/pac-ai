@@ -15,7 +15,7 @@ export const PAGES: readonly PageInfo[] = [
   { path: '/contact', title: 'Contact', index: 3 },
 ]
 
-const HOME_TITLE = 'Pac AI | You Envision, We Build'
+const HOME_TITLE = 'Pac AI | Imagine More, Build Smarter'
 
 /** Map any pathname onto a known page; unknown paths fall back to the landing page. */
 export function toPagePath(pathname: string): PagePath {

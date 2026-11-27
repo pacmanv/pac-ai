@@ -15,7 +15,7 @@ export const YEAR = new Date().getFullYear()
 
 export const HERO = {
   eyebrow: 'Independent AI studio',
-  lines: ['You envision.', 'We build.'],
+  lines: ['Imagine more.', 'Build smarter.'],
   intro:
     'Pac AI turns half-formed ideas into AI-powered apps, games and tools that people actually love to use.',
   primary: 'See the work',

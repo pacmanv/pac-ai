@@ -153,7 +153,7 @@ export function Finale({ onNavigate }: { onNavigate: Navigate }) {
             <Roll>{CONTACT_EMAIL}</Roll>
           </a>
         </nav>
-        <p className="ftr__meta">© {YEAR} Pac AI. You envision, we build.</p>
+        <p className="ftr__meta">© {YEAR} Pac AI. Imagine more, build smarter.</p>
         <button type="button" className="ftr__top" onClick={() => (fx.lenis ? fx.lenis.scrollTo(0) : window.scrollTo({ top: 0 }))}>
           <Roll>Back to top ↑</Roll>
         </button>
