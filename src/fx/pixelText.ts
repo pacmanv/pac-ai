@@ -83,6 +83,11 @@ export function createPixelText(el: HTMLElement, opts: PixelTextOptions = {}): P
   const canvas = document.createElement('canvas')
   canvas.className = 'px-canvas'
   canvas.setAttribute('aria-hidden', 'true')
+  // zero-sized until the first frame sizes it (a default 300x150 canvas could poke past the window edge)
+  canvas.width = 0
+  canvas.height = 0
+  canvas.style.left = '0px'
+  canvas.style.top = '0px'
   el.appendChild(canvas)
   const ctx = canvas.getContext('2d')!
   const tiny = document.createElement('canvas')
@@ -172,18 +177,24 @@ export function createPixelText(el: HTMLElement, opts: PixelTextOptions = {}): P
     last = t
     const r = dpr()
 
-    // size the canvas to the element, with room for descenders and italics
+    // size the canvas to the element, with room for descenders and italics,
+    // but never past the left or right edge of the window (that would let the page scroll sideways)
     const host = el.getBoundingClientRect()
     const scale = el.offsetWidth ? host.width / el.offsetWidth : 1
     const pad = 0.5 * parseFloat(getComputedStyle(el).fontSize)
-    const cw = Math.ceil((el.offsetWidth + pad * 2) * r)
+    const vw = document.documentElement.clientWidth
+    const padL = Math.floor(Math.max(0, Math.min(pad, host.left / scale)))
+    const padR = Math.floor(Math.max(0, Math.min(pad, (vw - host.right) / scale)))
+    const cssW = el.offsetWidth + padL + padR
+    const cw = Math.ceil(cssW * r)
     const ch = Math.ceil((el.offsetHeight + pad * 2) * r)
-    if (canvas.width !== cw || canvas.height !== ch) {
+    if (canvas.width !== cw || canvas.height !== ch || canvas.dataset.padL !== String(padL)) {
       canvas.width = cw
       canvas.height = ch
-      canvas.style.left = `${-pad}px`
+      canvas.dataset.padL = String(padL)
+      canvas.style.left = `${-padL}px`
       canvas.style.top = `${-pad}px`
-      canvas.style.width = `${el.offsetWidth + pad * 2}px`
+      canvas.style.width = `${cssW}px`
       canvas.style.height = `${el.offsetHeight + pad * 2}px`
     }
     ctx.clearRect(0, 0, cw, ch)
@@ -209,7 +220,7 @@ export function createPixelText(el: HTMLElement, opts: PixelTextOptions = {}): P
       // reveal and glitch resolve big blocks down to 1px; a dissolve grows them
       const amount = a.kind === 'out' ? easeIn(local) : 1 - easeOut(local)
       const block = Math.max(1, Math.round(a.maxBlock * r * amount))
-      let x = ((rect.left - host.left) / scale + pad) * r - m
+      let x = ((rect.left - host.left) / scale + padL) * r - m
       let y = ((rect.top - host.top) / scale + pad) * r - m
       if (a.kind === 'reveal') y += Math.round(amount * amount * c.fontPx * 0.35 * r)
       else if (a.kind === 'out') y -= Math.round(amount * c.fontPx * 0.3 * r)

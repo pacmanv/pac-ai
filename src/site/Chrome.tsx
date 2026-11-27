@@ -173,7 +173,7 @@ export function Finale({ onNavigate }: { onNavigate: Navigate }) {
           </span>
         </h2>
         <div data-reveal>
-          <NavLink to="/contact" onNavigate={onNavigate} className="orb" data-magnetic="0.45" data-cursor="Hello">
+          <NavLink to="/contact" onNavigate={onNavigate} className="orb" data-magnetic="0.45" data-cursor="Yo Pac" data-cursor-tone="dark">
             <span className="orb__text">{CTA.button}</span>
             <span className="orb__arrow" aria-hidden="true">
               →
