@@ -1,15 +1,17 @@
 import { SplitText } from 'gsap/SplitText'
 
 /**
- * Pixel text: a headline that resolves out of chunky pixel blocks into crisp
- * type, then keeps reacting. Characters near the pointer briefly re-pixelate,
- * a few glitch on their own every few seconds, and the reveal throws off a
- * spray of square "pixels" in each letter's colour.
+ * Pixel text: type that resolves out of chunky pixel blocks into crisp
+ * letters, then keeps reacting. Characters near the pointer briefly
+ * re-pixelate, a few can glitch on their own every few seconds, and reveals
+ * and dissolves throw off a spray of square "pixels" in each letter's colour.
  *
  * The real text stays in the DOM (screen readers, selection, layout). While a
  * character is animating, its DOM glyph is made transparent and a canvas
  * overlay draws a mosaic of it in the same place.
  */
+
+type Kind = 'reveal' | 'glitch' | 'out'
 
 interface Char {
   el: HTMLElement
@@ -18,7 +20,7 @@ interface Char {
   bmpKey: string
   fontPx: number
   /** active animation, if any */
-  anim: { start: number; dur: number; maxBlock: number; kind: 'reveal' | 'glitch'; jitter: number } | null
+  anim: { start: number; dur: number; maxBlock: number; kind: Kind; jitter: number } | null
   cooldownUntil: number
 }
 
@@ -33,17 +35,37 @@ interface Particle {
   color: string
 }
 
+export interface PixelTextOptions {
+  /** seconds between one letter starting and the next (default 0.03) */
+  stagger?: number
+  /** a short run of letters glitches every few seconds once revealed */
+  ambient?: boolean
+  /** letters start visible (e.g. a logo), instead of hidden until `reveal` */
+  startVisible?: boolean
+  /** duration multiplier: below 1 is faster (default 1) */
+  speed?: number
+  /** pixel block size multiplier: above 1 is chunkier (default 1) */
+  blockScale?: number
+}
+
 export interface PixelText {
-  /** resolve the text in, after `delay` seconds */
+  /** resolve the text in out of pixels, after `delay` seconds (visible text bursts into pixels first) */
   reveal(delay?: number): void
+  /** briefly re-pixelate every letter, leaving the text visible */
+  glitch(delay?: number): void
+  /** break the text up into pixels and let it fade away, after `delay` seconds */
+  dissolve(delay?: number): void
   destroy(): void
 }
 
 const now = () => performance.now() / 1000
 const easeOut = (t: number) => 1 - Math.pow(1 - t, 3)
+const easeIn = (t: number) => t * t * t
 
-export function createPixelText(el: HTMLElement, opts: { stagger?: number; ambient?: boolean } = {}): PixelText {
+export function createPixelText(el: HTMLElement, opts: PixelTextOptions = {}): PixelText {
   const stagger = opts.stagger ?? 0.03
+  const speed = opts.speed ?? 1
+  const blockScale = opts.blockScale ?? 1
   const split = SplitText.create(el, { type: 'words, chars', charsClass: 'px-char', wordsClass: 'px-word' })
   const chars: Char[] = (split.chars as HTMLElement[]).map((c) => ({
     el: c,
@@ -53,8 +75,8 @@ export function createPixelText(el: HTMLElement, opts: { stagger?: number; ambie
     anim: null,
     cooldownUntil: 0,
   }))
-  // hidden until revealed; the canvas draws them while they animate
-  chars.forEach((c) => (c.el.style.opacity = '0'))
+  // hidden until revealed (unless told otherwise); the canvas draws letters while they animate
+  if (!opts.startVisible) chars.forEach((c) => (c.el.style.opacity = '0'))
 
   // the overlay is positioned against the element itself
   if (getComputedStyle(el).position === 'static') el.style.position = 'relative'
@@ -64,10 +86,10 @@ export function createPixelText(el: HTMLElement, opts: { stagger?: number; ambie
   el.appendChild(canvas)
   const ctx = canvas.getContext('2d')!
   const tiny = document.createElement('canvas')
-  const tctx = tiny.getContext('2d', { willReadFrequently: false })!
+  const tctx = tiny.getContext('2d')!
   let particles: Particle[] = []
   let raf = 0
-  let revealed = false
+  let revealed = !!opts.startVisible
   let destroyed = false
   let ambientTimer = 0
   const timers: number[] = []
@@ -110,12 +132,13 @@ export function createPixelText(el: HTMLElement, opts: { stagger?: number; ambie
     return bmp
   }
 
-  function start(c: Char, kind: 'reveal' | 'glitch', delay: number) {
+  function start(c: Char, kind: Kind, delay: number) {
     const fontPx = parseFloat(getComputedStyle(c.el).fontSize)
+    const base = kind === 'reveal' ? 0.95 + Math.random() * 0.25 : kind === 'out' ? 0.5 + Math.random() * 0.15 : 0.45 + Math.random() * 0.2
     c.anim = {
       start: now() + delay,
-      dur: kind === 'reveal' ? 0.95 + Math.random() * 0.25 : 0.45 + Math.random() * 0.2,
-      maxBlock: Math.max(4, fontPx * (kind === 'reveal' ? 0.3 : 0.14)),
+      dur: base * speed,
+      maxBlock: Math.max(3, fontPx * (kind === 'glitch' ? 0.14 : 0.3) * blockScale),
       kind,
       jitter: (Math.random() - 0.5) * 2,
     }
@@ -127,7 +150,16 @@ export function createPixelText(el: HTMLElement, opts: { stagger?: number; ambie
     for (let i = 0; i < count; i++) {
       const a = Math.random() * Math.PI * 2
       const sp = (0.4 + Math.random()) * size * 0.06
-      particles.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - size * 0.03, size: Math.max(2, Math.round(size * (0.04 + Math.random() * 0.05))), life: 0, max: 0.6 + Math.random() * 0.6, color })
+      particles.push({
+        x,
+        y,
+        vx: Math.cos(a) * sp,
+        vy: Math.sin(a) * sp - size * 0.03,
+        size: Math.max(2, Math.round(size * (0.04 + Math.random() * 0.05))),
+        life: 0,
+        max: 0.6 + Math.random() * 0.6,
+        color,
+      })
     }
   }
 
@@ -166,24 +198,28 @@ export function createPixelText(el: HTMLElement, opts: { stagger?: number; ambie
       if (local < 0) continue
       if (local >= 1) {
         c.anim = null
-        c.el.style.opacity = '1'
+        // a dissolved letter stays gone; everything else lands back on the real text
+        c.el.style.opacity = a.kind === 'out' ? '0' : '1'
         continue
       }
       c.el.style.opacity = '0'
       const bmp = bitmapFor(c)
       const rect = c.el.getBoundingClientRect()
       const m = Math.ceil(c.fontPx * 0.45 * r)
-      const e = easeOut(local)
-      // block size steps down to 1 device pixel
-      const block = Math.max(1, Math.round(a.maxBlock * r * (1 - e)))
+      // reveal and glitch resolve big blocks down to 1px; a dissolve grows them
+      const amount = a.kind === 'out' ? easeIn(local) : 1 - easeOut(local)
+      const block = Math.max(1, Math.round(a.maxBlock * r * amount))
       let x = ((rect.left - host.left) / scale + pad) * r - m
       let y = ((rect.top - host.top) / scale + pad) * r - m
-      if (a.kind === 'reveal') y += Math.round(Math.pow(1 - e, 2) * c.fontPx * 0.35 * r)
-      else x += Math.round(a.jitter * (1 - e) * c.fontPx * 0.12 * r)
+      if (a.kind === 'reveal') y += Math.round(amount * amount * c.fontPx * 0.35 * r)
+      else if (a.kind === 'out') y -= Math.round(amount * c.fontPx * 0.3 * r)
+      else x += Math.round(a.jitter * amount * c.fontPx * 0.12 * r)
       // snap to the block grid so neighbouring letters share one pixel lattice
       x = Math.round(x / block) * block
       y = Math.round(y / block) * block
-      ctx.globalAlpha = a.kind === 'reveal' && local < 0.25 ? (Math.random() < 0.7 ? local * 4 : 0.15) : 1
+      if (a.kind === 'reveal') ctx.globalAlpha = local < 0.25 ? (Math.random() < 0.7 ? local * 4 : 0.15) : 1
+      else if (a.kind === 'out') ctx.globalAlpha = local > 0.55 ? (Math.random() < 0.75 ? (1 - local) / 0.45 : 0.1) : 1
+      else ctx.globalAlpha = 1
       if (block <= 1) {
         ctx.drawImage(bmp, x, y)
       } else {
@@ -196,9 +232,9 @@ export function createPixelText(el: HTMLElement, opts: { stagger?: number; ambie
         tctx.drawImage(bmp, 0, 0, tw, th)
         ctx.drawImage(tiny, 0, 0, tw, th, x, y, tw * block, th * block)
       }
-      if (a.kind === 'reveal' && local < 0.5 && Math.random() < 0.25) {
-        const color = getComputedStyle(c.el).color
-        spray(x + bmp.width / 2, y + bmp.height / 2, c.fontPx * r, color, 1)
+      const sprays = (a.kind === 'reveal' && local < 0.5) || (a.kind === 'out' && local > 0.3)
+      if (sprays && Math.random() < 0.25) {
+        spray(x + bmp.width / 2, y + bmp.height / 2, c.fontPx * r, getComputedStyle(c.el).color, a.kind === 'out' ? 2 : 1)
       }
     }
     ctx.globalAlpha = 1
@@ -224,20 +260,21 @@ export function createPixelText(el: HTMLElement, opts: { stagger?: number; ambie
     if (!revealed || e.pointerType !== 'mouse') return
     const t = now()
     for (const c of chars) {
-      if (c.anim || t < c.cooldownUntil) continue
+      if (c.anim || t < c.cooldownUntil || c.el.style.opacity === '0') continue
       const rc = c.el.getBoundingClientRect()
       const dx = e.clientX - (rc.left + rc.width / 2)
       const dy = e.clientY - (rc.top + rc.height / 2)
-      const reach = rc.height * 0.9
-      if (dx * dx + dy * dy < reach * reach) start(c, 'glitch', Math.hypot(dx, dy) / reach * 0.08)
+      const reach = Math.max(rc.height * 0.9, 18)
+      if (dx * dx + dy * dy < reach * reach) start(c, 'glitch', (Math.hypot(dx, dy) / reach) * 0.08)
     }
   }
   el.addEventListener('pointermove', onMove)
 
   // ambient: a short run of letters glitches every few seconds
   function scheduleAmbient() {
-    if (!opts.ambient || destroyed) return
+    if (!opts.ambient || destroyed || ambientTimer) return
     ambientTimer = window.setTimeout(() => {
+      ambientTimer = 0
       if (!document.hidden && revealed) {
         const n = 2 + Math.floor(Math.random() * 3)
         const from = Math.floor(Math.random() * Math.max(1, chars.length - n))
@@ -252,13 +289,20 @@ export function createPixelText(el: HTMLElement, opts: { stagger?: number; ambie
   return {
     reveal(delay = 0) {
       chars.forEach((c, i) => start(c, 'reveal', delay + i * stagger + Math.random() * 0.12))
-      const total = (delay + chars.length * stagger + 1.4) * 1000
+      const total = (delay + chars.length * stagger + 1.4 * speed) * 1000
       timers.push(
         window.setTimeout(() => {
           revealed = true
           scheduleAmbient()
         }, total),
       )
+    },
+    glitch(delay = 0) {
+      chars.forEach((c, i) => start(c, 'glitch', delay + i * stagger * 0.6))
+    },
+    dissolve(delay = 0) {
+      revealed = false
+      chars.forEach((c, i) => start(c, 'out', delay + i * stagger * 0.7 + Math.random() * 0.06))
     },
     destroy() {
       destroyed = true

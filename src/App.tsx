@@ -8,7 +8,7 @@ import Home from './pages/Home'
 import Work from './pages/Work'
 import About from './pages/About'
 import Contact from './pages/Contact'
-import { Header, MenuButton, ScrollProgress } from './site/Chrome'
+import { Header, MenuButton, NAVIGATE_EVENT, ScrollProgress } from './site/Chrome'
 import { SiteMenu } from './site/SiteMenu'
 import { titleFor, toPagePath, type PagePath } from './site/routes'
 import { usePrefersReducedMotion } from './lib/useReducedMotion'
@@ -16,7 +16,7 @@ import { usePrefersReducedMotion } from './lib/useReducedMotion'
 /** seconds the intro loader holds the first page */
 const INTRO = 2.6
 /** seconds after a page swap before its entrance plays (the wipe is lifting) */
-const ENTER = 0.35
+const ENTER = 1.05
 
 const LABELS: Record<PagePath, string> = { '/': 'Home', '/portfolio': 'Work', '/about': 'About', '/contact': 'Contact' }
 
@@ -34,6 +34,7 @@ export default function App() {
   const loaderRef = useRef<HTMLDivElement>(null)
   const wipeRef = useRef<HTMLDivElement>(null)
   const timelineRef = useRef<gsap.core.Timeline | null>(null)
+  const labelPxRef = useRef<PixelText | null>(null)
 
   useEffect(() => {
     window.history.scrollRestoration = 'manual'
@@ -143,23 +144,38 @@ export default function App() {
   const transition = useCallback(
     (to: PagePath) => {
       const wipe = wipeRef.current
-      if (reduced || !wipe) {
+      const label = wipe?.querySelector<HTMLElement>('.wipe__label')
+      if (reduced || !wipe || !label) {
         swap(to, 0)
         return
       }
       timelineRef.current?.kill()
-      const label = wipe.querySelector('.wipe__label')
-      if (label) label.textContent = LABELS[to]
+      labelPxRef.current?.destroy()
+      labelPxRef.current = null
+      label.textContent = LABELS[to]
       fx.field?.pulse(1)
+      // the header rides above the wipe while it plays, and its "Pac AI" pixelates too
+      const root = document.documentElement
+      root.classList.add('is-transitioning')
+      window.dispatchEvent(new CustomEvent(NAVIGATE_EVENT))
+      const finish = () => {
+        labelPxRef.current?.destroy()
+        labelPxRef.current = null
+        root.classList.remove('is-transitioning')
+      }
       timelineRef.current = gsap
-        .timeline()
+        .timeline({ onComplete: finish, onInterrupt: finish })
         .set(wipe, { visibility: 'visible', yPercent: 100 })
-        .set(label, { yPercent: 120 })
-        .to(wipe, { yPercent: 0, duration: 0.6, ease: 'expo.inOut' })
-        .to(label, { yPercent: 0, duration: 0.5, ease: 'expo.out' }, '-=0.25')
-        .add(() => swap(to, ENTER))
-        .to(label, { yPercent: -120, duration: 0.4, ease: 'expo.in' }, '+=0.1')
-        .to(wipe, { yPercent: -100, duration: 0.7, ease: 'expo.inOut' }, '-=0.15')
+        .to(wipe, { yPercent: 0, duration: 0.55, ease: 'expo.inOut' })
+        // the page name resolves out of pixels...
+        .add(() => {
+          labelPxRef.current = createPixelText(label, { stagger: 0.05, speed: 0.6, blockScale: 1.15 })
+          labelPxRef.current.reveal(0)
+        }, 0.2)
+        .add(() => swap(to, ENTER), 0.75)
+        // ...then breaks back up into pixels as the wipe lifts off the new page
+        .add(() => labelPxRef.current?.dissolve(0), 1.4)
+        .to(wipe, { yPercent: -100, duration: 0.7, ease: 'expo.inOut' }, 1.65)
         .set(wipe, { visibility: 'hidden' })
     },
     [reduced, swap],
@@ -187,6 +203,7 @@ export default function App() {
   useEffect(
     () => () => {
       timelineRef.current?.kill()
+      labelPxRef.current?.destroy()
     },
     [],
   )
@@ -203,6 +220,8 @@ export default function App() {
       <Header
         current={path}
         onNavigate={navigate}
+        reduced={reduced}
+        introDelay={reduced ? 0 : INTRO + 0.4}
         menuButton={<MenuButton ref={menuButtonRef} isOpen={isMenuOpen} onOpen={openMenu} />}
       />
 
@@ -214,9 +233,7 @@ export default function App() {
       <SiteMenu isOpen={isMenuOpen} current={path} onClose={closeMenu} onNavigate={navigate} returnFocusRef={menuButtonRef} />
 
       <div ref={wipeRef} className="wipe" aria-hidden="true">
-        <span className="wipe__mask">
-          <span className="wipe__label" />
-        </span>
+        <span className="wipe__label" />
       </div>
 
       <div ref={loaderRef} className="loader" aria-hidden="true">

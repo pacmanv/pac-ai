@@ -364,6 +364,14 @@ button:hover .roll::after {
   margin: -4px 0;
   transition: transform 0.6s var(--ease-out), filter 0.6s;
 }
+.hdr__name {
+  display: inline-block;
+}
+/* while a page transition plays, the header sits above the wipe */
+html.is-transitioning .hdr {
+  z-index: 245;
+  transform: none;
+}
 .hdr__brand:hover .hdr__mark {
   transform: rotate(-8deg) scale(1.08);
   filter: drop-shadow(0 0 14px rgb(200 255 61 / 0.45));
@@ -718,14 +726,9 @@ html.has-cursor * {
   border-top: 2px solid var(--accent);
   border-bottom: 2px solid var(--accent);
 }
-.wipe__mask {
-  overflow: hidden;
-  display: block;
-  padding-bottom: 0.1em;
-}
 .wipe__label {
   display: block;
-  font-size: clamp(3rem, 12vw, 10rem);
+  font-size: clamp(3.4rem, 17vw, 10rem);
   font-weight: 700;
   letter-spacing: -0.06em;
   line-height: 1;
