@@ -2,7 +2,8 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import gsap from 'gsap'
 import { Cursor } from './fx/Cursor'
 import { ShaderField } from './fx/ShaderField'
-import { fx, lockScroll, scrollToTop, startSmoothScroll } from './fx/motion'
+import { fontsReady, fx, lockScroll, scrollToTop, startSmoothScroll } from './fx/motion'
+import { createPixelText, type PixelText } from './fx/pixelText'
 import Home from './pages/Home'
 import Work from './pages/Work'
 import About from './pages/About'
@@ -13,7 +14,7 @@ import { titleFor, toPagePath, type PagePath } from './site/routes'
 import { usePrefersReducedMotion } from './lib/useReducedMotion'
 
 /** seconds the intro loader holds the first page */
-const INTRO = 1.6
+const INTRO = 2.6
 /** seconds after a page swap before its entrance plays (the wipe is lifting) */
 const ENTER = 0.35
 
@@ -77,7 +78,8 @@ export default function App() {
     return startSmoothScroll()
   }, [reduced])
 
-  // intro loader: a count to 100, then the curtain lifts
+  // intro loader: the share-image composition (wordmark, tagline, glows) resolves out of
+  // pixels while the count runs to 100, then the curtain lifts
   useLayoutEffect(() => {
     const loader = loaderRef.current
     if (!loader) return
@@ -88,19 +90,27 @@ export default function App() {
     lockScroll(true)
     const count = loader.querySelector('.loader__count')
     const n = { v: 0 }
+    const pixels: PixelText[] = []
+    let cancelled = false
+    fontsReady.then(() => {
+      if (cancelled) return
+      const word = loader.querySelector<HTMLElement>('.loader__word')
+      const tag = loader.querySelector<HTMLElement>('.loader__tag')
+      if (word) pixels.push(createPixelText(word, { stagger: 0.07 }))
+      if (tag) pixels.push(createPixelText(tag, { stagger: 0.022 }))
+      gsap.set([word, tag], { autoAlpha: 1 })
+      pixels[0]?.reveal(0.05)
+      pixels[1]?.reveal(0.55)
+    })
     const tl = gsap
       .timeline({
         onComplete: () => {
+          pixels.forEach((p) => p.destroy())
           loader.remove()
           lockScroll(false)
         },
       })
-      .from(loader.querySelectorAll('.loader__mask > span'), {
-        yPercent: 110,
-        duration: 0.7,
-        ease: 'expo.out',
-        stagger: 0.04,
-      })
+      .from(loader.querySelectorAll('.loader__glow'), { autoAlpha: 0, scale: 0.6, duration: 1.4, ease: 'expo.out', stagger: 0.12 }, 0)
       .to(n, {
         v: 100,
         duration: INTRO - 0.5,
@@ -111,9 +121,12 @@ export default function App() {
       }, 0)
       .to(loader.querySelector('.loader__bar i'), { scaleX: 1, duration: INTRO - 0.5, ease: 'power2.inOut' }, 0)
       .add(() => fx.field?.pulse(1.2), INTRO - 0.5)
-      .to(loader, { yPercent: -100, duration: 0.9, ease: 'expo.inOut' }, INTRO - 0.45)
+      .to(loader.querySelector('.loader__center'), { scale: 1.06, autoAlpha: 0, filter: 'blur(8px)', duration: 0.7, ease: 'expo.in' }, INTRO - 0.6)
+      .to(loader, { yPercent: -100, duration: 0.9, ease: 'expo.inOut' }, INTRO - 0.35)
     return () => {
+      cancelled = true
       tl.kill()
+      pixels.forEach((p) => p.destroy())
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -207,16 +220,19 @@ export default function App() {
       </div>
 
       <div ref={loaderRef} className="loader" aria-hidden="true">
-        <p className="loader__brand">
-          <span className="loader__mask">
-            <span>Pac</span>
-          </span>{' '}
-          <span className="loader__mask">
-            <span>
-              <em>AI</em>
+        <i className="loader__glow loader__glow--violet" />
+        <i className="loader__glow loader__glow--lime" />
+        <i className="loader__glow loader__glow--teal" />
+        <div className="loader__center">
+          <p className="loader__brand">
+            <span className="loader__word">
+              Pac <em>AI</em>
             </span>
-          </span>
-        </p>
+          </p>
+          <p className="loader__tag">
+            Imagine more. <b>Build smarter.</b>
+          </p>
+        </div>
         <div className="loader__bar">
           <i />
         </div>

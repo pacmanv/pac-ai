@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="480" height="480" role="img" aria-label="Pac AI"><title>Pac AI</title>
+  <defs>
+    <clipPath id="m-tile"><rect x="10" y="10" width="100" height="100" rx="28"/></clipPath>
+    <filter id="m-frost" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="11"/></filter>
+    <filter id="m-drop" x="-50%" y="-200%" width="200%" height="500%"><feGaussianBlur stdDeviation="5"/></filter>
+    <filter id="m-glow" x="-100%" y="-100%" width="300%" height="300%"><feGaussianBlur stdDeviation="3"/></filter>
+    <filter id="m-grain"><feTurbulence type="fractalNoise" baseFrequency="1.4" numOctaves="2" seed="7"/><feColorMatrix values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 .55 0"/></filter>
+    <linearGradient id="m-glass" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fff" stop-opacity=".24"/><stop offset=".5" stop-color="#fff" stop-opacity=".07"/><stop offset="1" stop-color="#fff" stop-opacity=".03"/>
+    </linearGradient>
+    <linearGradient id="m-rim" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fff" stop-opacity=".9"/><stop offset=".42" stop-color="#fff" stop-opacity=".14"/><stop offset=".8" stop-color="#fff" stop-opacity=".08"/><stop offset="1" stop-color="#c8ff3d" stop-opacity=".55"/>
+    </linearGradient>
+    <linearGradient id="m-ink" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#d6d8cf"/>
+    </linearGradient>
+  </defs>
+  <ellipse cx="60" cy="110" rx="36" ry="5" fill="#000" opacity=".55" filter="url(#m-drop)"/>
+  <g clip-path="url(#m-tile)">
+    <rect x="10" y="10" width="100" height="100" fill="#0b0d14"/>
+    <g filter="url(#m-frost)">
+      <circle cx="28" cy="90" r="34" fill="#8b6cff" opacity=".95"/>
+      <circle cx="98" cy="22" r="22" fill="#c8ff3d" opacity=".5"/>
+      <circle cx="96" cy="98" r="20" fill="#22c3b5" opacity=".4"/>
+    </g>
+    <rect x="10" y="10" width="100" height="100" fill="url(#m-glass)"/>
+    <rect x="10" y="10" width="100" height="100" filter="url(#m-grain)" opacity=".07"/>
+    <ellipse cx="34" cy="12" rx="56" ry="20" fill="#fff" opacity=".1" transform="rotate(-18 34 12)"/>
+  </g>
+  <rect x="10.75" y="10.75" width="98.5" height="98.5" rx="27.25" fill="none" stroke="url(#m-rim)" stroke-width="1.5"/>
+  <path d="M44 86V34H62A16 16 0 0 1 62 66H44" fill="none" stroke="#000" stroke-opacity=".35" stroke-width="11" stroke-linecap="round" stroke-linejoin="round" transform="translate(0 2)" filter="url(#m-glow)"/>
+  <path d="M44 86V34H62A16 16 0 0 1 62 66H44" fill="none" stroke="url(#m-ink)" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M61 42.5C61.9 48 62.9 49.1 68.5 50C62.9 50.9 61.9 52 61 57.5C60.1 52 59.1 50.9 53.5 50C59.1 49.1 60.1 48 61 42.5Z" fill="#c8ff3d" filter="url(#m-glow)" opacity=".9"/>
+  <path d="M61 42.5C61.9 48 62.9 49.1 68.5 50C62.9 50.9 61.9 52 61 57.5C60.1 52 59.1 50.9 53.5 50C59.1 49.1 60.1 48 61 42.5Z" fill="#c8ff3d"/>
+</svg>

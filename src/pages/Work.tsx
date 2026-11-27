@@ -46,10 +46,10 @@ export default function Work({ onNavigate, reduced, delay }: { onNavigate: (to: 
           <span className="eyebrow__dot" /> Work · {String(PROJECTS.length).padStart(2, '0')} projects
         </p>
         <h1 className="phead__title">
-          <span className="phead__line" data-split="now">
+          <span className="phead__line" data-pixel="now">
             Selected
           </span>
-          <span className="phead__line phead__line--accent" data-split="now">
+          <span className="phead__line phead__line--accent" data-pixel="now">
             work.
           </span>
         </h1>

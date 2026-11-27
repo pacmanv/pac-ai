@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pac AI Logo</title>
+<style>
+  :root {
+    --bg: #050608; --ink: #eeede8; --lime: #c8ff3d; --violet: #8b6cff; --teal: #22c3b5;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; display: grid; place-items: center; overflow: hidden;
+    background: var(--bg); color: var(--ink);
+    font-family: ui-monospace, "IBM Plex Mono", monospace;
+  }
+
+  /* the busy backdrop the glass frosts: drifting colour blobs */
+  .aurora { position: fixed; inset: -20%; filter: blur(60px) saturate(140%); }
+  .aurora i { position: absolute; border-radius: 50%; mix-blend-mode: screen; animation: drift 16s ease-in-out infinite alternate; }
+  .aurora i:nth-child(1) { width: 44vmax; height: 44vmax; left: 22%; top: 8%; background: var(--violet); }
+  .aurora i:nth-child(2) { width: 30vmax; height: 30vmax; left: 52%; top: 4%; background: var(--lime); opacity: .55; animation-duration: 20s; animation-delay: -6s; }
+  .aurora i:nth-child(3) { width: 30vmax; height: 30vmax; left: 54%; top: 46%; background: var(--teal); opacity: .5; animation-duration: 18s; animation-delay: -3s; }
+  @keyframes drift { to { transform: translate(8vmax, -6vmax) scale(1.15); } }
+
+  .stage { position: relative; display: grid; justify-items: center; gap: clamp(28px, 5vh, 48px); padding: 16px; }
+
+  /* the glass tile: frost + translucency + lit rim + depth */
+  .tile {
+    --size: clamp(180px, 34vmin, 300px);
+    position: relative; width: var(--size); aspect-ratio: 1; border-radius: 28%;
+    background: linear-gradient(135deg, rgb(255 255 255 / .22), rgb(255 255 255 / .06) 50%, rgb(255 255 255 / .03));
+    backdrop-filter: blur(22px) saturate(170%);
+    -webkit-backdrop-filter: blur(22px) saturate(170%);
+    box-shadow:
+      0 30px 80px -20px rgb(0 0 0 / .6),
+      0 0 0 1px rgb(255 255 255 / .06),
+      inset 0 1px 0 rgb(255 255 255 / .45),
+      inset 0 -1px 0 rgb(0 0 0 / .25);
+    overflow: hidden; isolation: isolate;
+    transition: transform .6s cubic-bezier(.16,1,.3,1), box-shadow .6s, background .6s;
+    animation: enter 1.2s cubic-bezier(.16,1,.3,1) both;
+  }
+  /* lit corner rim: bright top-left, lime catch bottom-right */
+  .tile::before {
+    content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 1.5px; z-index: 2;
+    background: linear-gradient(135deg, rgb(255 255 255 / .9), rgb(255 255 255 / .12) 42%, rgb(255 255 255 / .06) 80%, rgb(200 255 61 / .6));
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor; mask-composite: exclude;
+    pointer-events: none;
+  }
+  /* anti-banding grain */
+  .tile::after {
+    content: ""; position: absolute; inset: 0; opacity: .06; z-index: 1; pointer-events: none;
+    background: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  }
+  .tile svg { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 3; }
+  /* specular sweep */
+  .sweep {
+    position: absolute; inset: -20% auto -20% -60%; width: 45%; z-index: 4; pointer-events: none;
+    background: linear-gradient(90deg, transparent, rgb(255 255 255 / .28), transparent);
+    transform: skewX(-18deg); animation: sweep 6s cubic-bezier(.65,0,.35,1) 1.2s infinite;
+  }
+  @keyframes sweep { 0% { left: -60%; } 35%, 100% { left: 130%; } }
+  @keyframes enter { from { opacity: 0; transform: translateY(24px) scale(.92); backdrop-filter: blur(0); } }
+  .tile:hover, :root[data-state="hover"] .tile {
+    transform: translateY(-6px) rotate(-2deg);
+    background: linear-gradient(135deg, rgb(255 255 255 / .28), rgb(255 255 255 / .08) 50%, rgb(255 255 255 / .04));
+    box-shadow: 0 40px 100px -20px rgb(0 0 0 / .7), 0 0 60px -10px rgb(200 255 61 / .35), inset 0 1px 0 rgb(255 255 255 / .6), inset 0 -1px 0 rgb(0 0 0 / .25);
+  }
+  .spark { transform-origin: 61px 50px; animation: twinkle 3.2s ease-in-out infinite; }
+  @keyframes twinkle { 50% { transform: scale(1.22); } }
+
+  .word { width: min(76vw, 460px); height: auto; animation: enter 1.2s .15s cubic-bezier(.16,1,.3,1) both; }
+  .note { font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: rgb(238 237 232 / .6); animation: enter 1.2s .3s both; }
+  .note b { color: var(--lime); font-weight: 500; }
+
+  @media (prefers-reduced-transparency: reduce) {
+    .tile { background: #15122e; backdrop-filter: none; -webkit-backdrop-filter: none; }
+    .tile::after { display: none; }
+  }
+  :root.reduced-transparency .tile { background: #15122e; backdrop-filter: none; -webkit-backdrop-filter: none; }
+  :root.reduced-transparency .tile::after { display: none; }
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .tile { background: rgb(26 22 56 / .9); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+    .sweep { display: none; }
+  }
+</style>
+</head>
+<body>
+  <div class="aurora" aria-hidden="true"><i></i><i></i><i></i></div>
+  <main class="stage">
+    <div class="tile" role="img" aria-label="Pac AI logo mark">
+      <svg viewBox="10 10 100 100" aria-hidden="true">
+        <defs>
+          <linearGradient id="ink" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#d6d8cf"/></linearGradient>
+          <filter id="glow" x="-100%" y="-100%" width="300%" height="300%"><feGaussianBlur stdDeviation="3"/></filter>
+        </defs>
+        <path d="M44 86V34H62A16 16 0 0 1 62 66H44" fill="none" stroke="#000" stroke-opacity=".3" stroke-width="11" stroke-linecap="round" stroke-linejoin="round" transform="translate(0 2)" filter="url(#glow)"/>
+        <path d="M44 86V34H62A16 16 0 0 1 62 66H44" fill="none" stroke="url(#ink)" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
+        <g class="spark"><path d="M61 42.5C61.9 48 62.9 49.1 68.5 50C62.9 50.9 61.9 52 61 57.5C60.1 52 59.1 50.9 53.5 50C59.1 49.1 60.1 48 61 42.5Z" fill="#c8ff3d" filter="url(#glow)"/><path d="M61 42.5C61.9 48 62.9 49.1 68.5 50C62.9 50.9 61.9 52 61 57.5C60.1 52 59.1 50.9 53.5 50C59.1 49.1 60.1 48 61 42.5Z" fill="#c8ff3d"/></g>
+      </svg>
+      <span class="sweep" aria-hidden="true"></span>
+    </div>
+    <svg class="word" viewBox="0 -86 285.9 96" role="img" aria-label="Pac AI">
+      <path d="M6.57 0V-72.75H34.96Q43.24 -72.75 49.05 -69.6Q54.86 -66.45 57.92 -60.91Q60.97 -55.37 60.97 -48.19Q60.97 -40.98 57.88 -35.48Q54.78 -29.98 48.89 -26.87Q43 -23.76 34.61 -23.76H16.38V-35.79H32.25Q36.8 -35.79 39.76 -37.37Q42.72 -38.96 44.16 -41.75Q45.6 -44.55 45.6 -48.19Q45.6 -51.88 44.16 -54.64Q42.72 -57.4 39.75 -58.93Q36.77 -60.46 32.2 -60.46H21.49V0Z M81.79 1.06Q76.59 1.06 72.47 -0.78Q68.35 -2.61 65.99 -6.24Q63.63 -9.87 63.63 -15.26Q63.63 -19.85 65.31 -22.91Q66.98 -25.97 69.88 -27.84Q72.78 -29.71 76.48 -30.68Q80.17 -31.66 84.22 -32.04Q88.94 -32.52 91.85 -32.94Q94.75 -33.36 96.11 -34.25Q97.46 -35.15 97.46 -36.92V-37.16Q97.46 -39.49 96.47 -41.11Q95.48 -42.73 93.57 -43.59Q91.67 -44.45 88.89 -44.45Q86.09 -44.45 83.99 -43.6Q81.89 -42.74 80.55 -41.32Q79.22 -39.9 78.63 -38.13L65.2 -40.36Q66.59 -45.13 69.86 -48.45Q73.13 -51.77 78 -53.52Q82.86 -55.27 88.93 -55.27Q93.33 -55.27 97.48 -54.23Q101.63 -53.19 104.93 -50.97Q108.23 -48.76 110.17 -45.24Q112.11 -41.72 112.11 -36.75V0H98.22V-7.58H97.74Q96.41 -5.04 94.22 -3.1Q92.02 -1.15 88.94 -0.04Q85.85 1.06 81.79 1.06ZM85.91 -9.21Q89.37 -9.21 91.99 -10.59Q94.61 -11.96 96.09 -14.3Q97.57 -16.64 97.57 -19.52V-25.42Q96.9 -24.97 95.6 -24.58Q94.29 -24.18 92.68 -23.87Q91.08 -23.56 89.51 -23.33Q87.94 -23.1 86.73 -22.93Q84.03 -22.57 81.98 -21.69Q79.93 -20.82 78.8 -19.36Q77.67 -17.9 77.67 -15.69Q77.67 -13.57 78.74 -12.13Q79.81 -10.69 81.66 -9.95Q83.51 -9.21 85.91 -9.21Z M144.5 1.07Q136.28 1.07 130.3 -2.46Q124.31 -5.99 121.07 -12.33Q117.82 -18.66 117.82 -27.06Q117.82 -35.52 121.07 -41.87Q124.31 -48.22 130.3 -51.74Q136.28 -55.27 144.5 -55.27Q149.37 -55.27 153.47 -54.01Q157.56 -52.75 160.73 -50.4Q163.9 -48.05 165.95 -44.69Q168 -41.32 168.78 -37.13L155.16 -34.58Q154.71 -36.7 153.79 -38.39Q152.87 -40.09 151.55 -41.29Q150.22 -42.49 148.49 -43.12Q146.76 -43.75 144.65 -43.75Q140.74 -43.75 138.09 -41.64Q135.45 -39.54 134.1 -35.79Q132.74 -32.05 132.74 -27.11Q132.74 -22.24 134.1 -18.48Q135.45 -14.73 138.09 -12.59Q140.74 -10.46 144.65 -10.46Q146.78 -10.46 148.54 -11.11Q150.29 -11.77 151.65 -13Q153.01 -14.24 153.93 -16.02Q154.85 -17.79 155.27 -19.99L168.87 -17.47Q168.11 -13.15 166.05 -9.74Q163.99 -6.33 160.83 -3.9Q157.66 -1.48 153.53 -0.21Q149.4 1.07 144.5 1.07Z" fill="#eeede8"/>
+      <g transform="translate(194.69 0) scale(.95)"><path d="M-6.94 0Q-8.29 0 -8.29 -1.12Q-8.29 -2.13 -6.5 -2.58L-4.7 -2.91Q-2.46 -3.36 -0.84 -5.1Q0.78 -6.83 2.24 -9.97L35.73 -79.97Q36.29 -81.09 36.85 -81.42Q37.41 -81.76 37.86 -81.76Q38.42 -81.76 38.81 -81.42Q39.2 -81.09 39.2 -79.97L40.43 -8.96Q40.54 -5.82 41.22 -4.65Q41.89 -3.47 44.02 -2.91L45.47 -2.58Q46.82 -2.24 46.82 -1.23Q46.82 0 44.91 0H26.43Q24.98 0 24.98 -1.12Q24.98 -2.35 27.22 -2.58L29.46 -2.8Q31.36 -3.02 32.09 -4.03Q32.82 -5.04 32.82 -7.5L32.59 -24.86Q32.59 -27.78 29.57 -27.78H17.58Q14.67 -27.78 13.22 -24.86L5.94 -9.86Q2.91 -3.47 7.95 -2.8L9.52 -2.58Q11.2 -2.35 11.2 -1.23Q11.2 0 9.3 0ZM18.03 -31.14H30.58Q32.48 -31.14 32.48 -33.04L32.26 -63.62H31.7L17.02 -33.04Q16.58 -32.26 16.91 -31.7Q17.25 -31.14 18.03 -31.14Z M47.6 0Q46.03 0 46.03 -1.12Q46.03 -2.35 48.27 -2.69L50.51 -3.02Q52.98 -3.36 53.93 -4.2Q54.88 -5.04 55.33 -7.39L70.56 -73.25Q71.12 -75.6 70.56 -76.38Q70 -77.17 67.76 -77.62L65.52 -78.06Q64.06 -78.4 64.06 -79.3Q64.06 -80.64 66.08 -80.64H86.02Q87.58 -80.64 87.58 -79.52Q87.58 -78.29 85.34 -77.95L83.1 -77.62Q80.64 -77.28 79.74 -76.44Q78.85 -75.6 78.29 -73.25L63.06 -7.39Q62.61 -5.04 63.11 -4.26Q63.62 -3.47 65.86 -3.02L68.1 -2.58Q69.55 -2.24 69.55 -1.34Q69.55 0 67.54 0Z" fill="#c8ff3d"/></g>
+    </svg>
+    <p class="note">Imagine more. <b>Build smarter.</b></p>
+  </main>
+<script>
+  // ?state=hover forces the hover look; ?t=N freezes every animation at N seconds; ?reduced=1 shows the solid fallback
+  const q = new URLSearchParams(location.search);
+  if (q.get("state")) document.documentElement.dataset.state = q.get("state");
+  if (q.get("reduced")) document.documentElement.classList.add("reduced-transparency");
+  const t = q.get("t");
+  if (t !== null) document.getAnimations().forEach(a => { a.currentTime = parseFloat(t) * 1000; a.pause(); });
+  window.__ready = true;
+</script>
+</body>
+</html>
