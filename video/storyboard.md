@@ -24,3 +24,4 @@
 - `sync-check.mjs` — checks every cut lands on a beat: `node sync-check.mjs out/pac-ai-launch.mp4 --cues-file out/pac-ai-launch.cues.json`
 - `assets/` — the site's fonts, project screenshots and glass tile (`images.js` holds the images as data URIs)
 - `out/pac-ai-launch.mp4` — the rendered film; `out/pac-ai-launch-poster.jpg` — poster frame
+- `out/pac-ai-launch-no-music.mp4` — the same film with no audio, for adding a licensed song inside TikTok, Instagram or an editor

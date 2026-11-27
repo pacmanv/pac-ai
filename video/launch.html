@@ -404,7 +404,7 @@ function sceneReveal(t, l) {
   ctx.restore();
   // big spray burst
   for (let i = 0; i < 26; i++) spray(W / 2 + (hash(i, 3) - .5) * 700, H / 2 - 40 + (hash(i, 4) - .5) * 160, 140, hash(i, 5) < .6 ? C.lime : C.ink, l, 7000 + i, 3, 1.4);
-  eyebrow('INDEPENDENT AI STUDIO', W / 2, H / 2 - 230, l - .5, C.ink2, C.lime, 'center');
+  eyebrow('INDEPENDENT AI GARAGE', W / 2, H / 2 - 230, l - .5, C.ink2, C.lime, 'center');
   if (l >= 1.5) { const k = eOutBack(seg(l, 1.5, 1.75), 2); ctx.save(); ctx.globalAlpha = clamp((l - 1.5) * 6); ctx.font = MONO(30); ctx.letterSpacing = '6px'; ctx.textAlign = 'center'; ctx.fillStyle = C.lime;
     ctx.translate(W / 2, H / 2 + 175); ctx.scale(k, k); ctx.fillText('PACAI.IO  ·  NOW LIVE', 0, 0); ctx.restore(); }
 }
