@@ -34,6 +34,7 @@
 
 html {
   background: var(--bg);
+  overflow-x: clip;
   -webkit-text-size-adjust: 100%;
 }
 
@@ -163,6 +164,8 @@ em {
 .page {
   position: relative;
   z-index: 2;
+  /* effect overlays (pixel canvases, ghost type) may overhang the sides */
+  overflow-x: clip;
 }
 
 /* ---------- progress ---------- */
@@ -216,8 +219,19 @@ em {
 }
 
 .split-line {
-  padding-bottom: 0.08em;
-  margin-bottom: -0.08em;
+  /* room for descenders (g, y, p) inside the reveal mask */
+  padding-bottom: 0.2em;
+  margin-bottom: -0.2em;
+}
+
+/* pixel headlines: the canvas overlay draws letters while they animate */
+[data-pixel] {
+  position: relative;
+}
+.px-canvas {
+  position: absolute;
+  z-index: 1;
+  pointer-events: none;
 }
 
 /* text that rolls to a copy of itself on hover */
@@ -345,12 +359,14 @@ button:hover .roll::after {
   letter-spacing: -0.03em;
 }
 .hdr__mark {
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  background: conic-gradient(from 210deg, var(--accent), var(--violet), var(--accent));
-  box-shadow: 0 0 20px rgb(200 255 61 / 0.45);
-  animation: spin 8s linear infinite;
+  width: 36px;
+  height: 36px;
+  margin: -4px 0;
+  transition: transform 0.6s var(--ease-out), filter 0.6s;
+}
+.hdr__brand:hover .hdr__mark {
+  transform: rotate(-8deg) scale(1.08);
+  filter: drop-shadow(0 0 14px rgb(200 255 61 / 0.45));
 }
 @keyframes spin {
   to {
@@ -457,6 +473,9 @@ button:hover .roll::after {
   justify-content: space-between;
 }
 .menu__brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
   font-weight: 700;
   font-size: 18px;
   letter-spacing: -0.03em;
@@ -588,32 +607,88 @@ html.has-cursor * {
   inset: 0;
   z-index: 250;
   display: grid;
-  place-content: center;
-  justify-items: center;
-  gap: 28px;
+  place-items: center;
+  overflow: hidden;
   background: var(--bg);
 }
+.loader__glow {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(40px);
+  animation: glow-drift 6s ease-in-out infinite alternate;
+}
+.loader__glow--violet {
+  width: 62vmax;
+  height: 46vmax;
+  left: -12vmax;
+  bottom: -18vmax;
+  background: radial-gradient(closest-side, rgb(139 108 255 / 0.55), transparent);
+}
+.loader__glow--lime {
+  width: 44vmax;
+  height: 34vmax;
+  right: -10vmax;
+  top: -12vmax;
+  background: radial-gradient(closest-side, rgb(200 255 61 / 0.25), transparent);
+  animation-delay: -2s;
+}
+.loader__glow--teal {
+  width: 44vmax;
+  height: 34vmax;
+  right: -10vmax;
+  bottom: -16vmax;
+  background: radial-gradient(closest-side, rgb(34 195 181 / 0.25), transparent);
+  animation-delay: -4s;
+}
+@keyframes glow-drift {
+  to {
+    transform: translate(3vmax, -2vmax) scale(1.08);
+  }
+}
+.loader__center {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: clamp(20px, 4vh, 36px);
+  padding: 0 16px;
+  text-align: center;
+}
 .loader__brand {
-  font-size: clamp(3.5rem, 12vw, 9rem);
+  font-size: clamp(4rem, 14vw, 10.5rem);
   font-weight: 700;
-  letter-spacing: -0.06em;
+  letter-spacing: -0.055em;
   line-height: 1;
+}
+.loader__word {
+  display: inline-block;
+  visibility: hidden;
+  padding: 0 0.06em;
 }
 .loader__brand em {
   color: var(--accent);
+  padding-left: 0.08em;
 }
-.loader__mask {
-  display: inline-block;
-  overflow: hidden;
-  padding: 0 0.04em 0.1em;
-  vertical-align: bottom;
+.loader__tag {
+  display: block;
+  visibility: hidden;
+  font-family: var(--mono);
+  font-size: clamp(12px, 1.9vw, 22px);
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgb(238 237 232 / 0.7);
 }
-.loader__mask > span {
-  display: inline-block;
+.loader__tag b {
+  font-weight: 500;
+  color: var(--accent);
 }
 .loader__bar {
-  width: min(260px, 60vw);
+  position: absolute;
+  left: 50%;
+  bottom: 30px;
+  width: min(260px, 50vw);
   height: 1px;
+  margin-left: max(-130px, -25vw);
   background: var(--line-2);
 }
 .loader__bar i {
@@ -626,7 +701,7 @@ html.has-cursor * {
 .loader__count {
   position: absolute;
   right: var(--gutter);
-  bottom: 24px;
+  bottom: 22px;
   font-family: var(--mono);
   font-size: 13px;
   color: var(--ink-2);

@@ -21,10 +21,10 @@ export default function About({ onNavigate, reduced, delay }: { onNavigate: (to:
           <span className="eyebrow__dot" /> About
         </p>
         <h1 className="phead__title">
-          <span className="phead__line" data-split="now">
+          <span className="phead__line" data-pixel="now">
             {ABOUT.title[0]}
           </span>
-          <span className="phead__line phead__line--accent" data-split="now">
+          <span className="phead__line phead__line--accent" data-pixel="now">
             {ABOUT.title[1]}
           </span>
         </h1>
@@ -56,7 +56,7 @@ export default function About({ onNavigate, reduced, delay }: { onNavigate: (to:
       <section className="tagline" aria-label="In short">
         <p className="tagline__text">
           {ABOUT.tagline.map((line, i) => (
-            <span key={line} className={`tagline__line${i === ABOUT.tagline.length - 1 ? ' tagline__line--accent' : ''}`} data-split>
+            <span key={line} className={`tagline__line${i === ABOUT.tagline.length - 1 ? ' tagline__line--accent' : ''}`} data-pixel>
               {line}
             </span>
           ))}

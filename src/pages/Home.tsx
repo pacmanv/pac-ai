@@ -185,10 +185,10 @@ export default function Home({ onNavigate, reduced, introDelay }: PageProps) {
             <span className="eyebrow__dot" /> {HERO.eyebrow}
           </p>
           <h1 id="hero-title" className="hero__title">
-            <span className="hero__line" data-split="now">
+            <span className="hero__line" data-pixel="now">
               {HERO.lines[0]}
             </span>
-            <span className="hero__line hero__line--accent" data-split="now">
+            <span className="hero__line hero__line--accent" data-pixel="now">
               {HERO.lines[1].split(' ')[0]} <em>{HERO.lines[1].split(' ').slice(1).join(' ')}</em>
             </span>
           </h1>

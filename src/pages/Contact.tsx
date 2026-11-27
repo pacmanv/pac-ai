@@ -30,10 +30,10 @@ export default function Contact({ reduced, delay }: { reduced: boolean; delay: n
           <span className="eyebrow__dot" /> Contact
         </p>
         <h1 className="phead__title">
-          <span className="phead__line" data-split="now">
+          <span className="phead__line" data-pixel="now">
             {CONTACT.title[0]}
           </span>
-          <span className="phead__line phead__line--accent" data-split="now">
+          <span className="phead__line phead__line--accent" data-pixel="now">
             {CONTACT.title[1]}
           </span>
         </h1>

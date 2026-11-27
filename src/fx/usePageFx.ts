@@ -2,6 +2,7 @@ import { useLayoutEffect, type RefObject } from 'react'
 import gsap from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import { bindMagnetics, bindTilt, fontsReady, splitChars } from './motion'
+import { createPixelText, type PixelText } from './pixelText'
 
 type Split = ReturnType<typeof splitChars>
 
@@ -10,6 +11,8 @@ type Split = ReturnType<typeof splitChars>
  *
  * - `data-split`   headline rises in character by character when it scrolls into view
  *                  (`data-split="now"` plays immediately, e.g. a page title)
+ * - `data-pixel`   headline resolves out of pixel blocks, then glitches near the pointer
+ *                  (`data-pixel="now"` plays immediately and glitches on its own now and then)
  * - `data-reveal`  fades up when it scrolls into view (batched)
  * - `data-magnetic` / `data-tilt`  pointer effects, see motion.ts
  *
@@ -29,11 +32,12 @@ export function usePageFx(
     if (reduced) return () => unbind.forEach((u) => u())
 
     const splits: Split[] = []
+    const pixels: PixelText[] = []
     let ctx: gsap.Context | null = null
     let cancelled = false
 
     // hide split targets now so they never flash before fonts arrive
-    gsap.set(root.querySelectorAll('[data-split], [data-reveal]'), { autoAlpha: 0 })
+    gsap.set(root.querySelectorAll('[data-split], [data-reveal], [data-pixel]'), { autoAlpha: 0 })
 
     fontsReady.then(() => {
       if (cancelled) return
@@ -56,6 +60,21 @@ export function usePageFx(
           })
         })
 
+        let nowIndex = 0
+        q('[data-pixel]').forEach((el) => {
+          const now = el.dataset.pixel === 'now'
+          const px = createPixelText(el, { ambient: now })
+          pixels.push(px)
+          gsap.set(el, { autoAlpha: 1 })
+          if (now) {
+            px.reveal(delay + nowIndex++ * 0.22)
+          } else {
+            // lines of one heading follow each other
+            const lineIndex = Array.from(el.parentElement?.children ?? []).indexOf(el)
+            ScrollTrigger.create({ trigger: el, start: 'top 88%', once: true, onEnter: () => px.reveal(Math.max(0, lineIndex) * 0.22) })
+          }
+        })
+
         ScrollTrigger.batch(q('[data-reveal]'), {
           start: 'top 90%',
           once: true,
@@ -75,6 +94,7 @@ export function usePageFx(
     return () => {
       cancelled = true
       ctx?.revert()
+      pixels.forEach((p) => p.destroy())
       splits.forEach((s) => s.revert())
       unbind.forEach((u) => u())
     }

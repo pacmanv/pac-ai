@@ -1,5 +1,6 @@
 import { useEffect, useRef, type CSSProperties, type RefObject } from 'react'
 import { lockScroll } from '../fx/motion'
+import markUrl from '../assets/pac-ai-mark.svg'
 import { CONTACT_EMAIL, INSTAGRAM } from './content'
 import { PAGES, linkHandler, type PagePath } from './routes'
 
@@ -69,7 +70,10 @@ export function SiteMenu({ isOpen, current, onClose, onNavigate, returnFocusRef 
       data-lenis-prevent
     >
       <div className="menu__top">
-        <span className="menu__brand">Pac AI</span>
+        <span className="menu__brand">
+          <img className="hdr__mark" src={markUrl} alt="" width="36" height="36" />
+          Pac AI
+        </span>
         <button ref={closeRef} type="button" className="menu-btn is-close" aria-label="Close menu" onClick={onClose}>
           <i />
           <i />

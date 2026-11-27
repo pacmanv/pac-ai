@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode, type Ref } from 'react'
 import { fx } from '../fx/motion'
+import markUrl from '../assets/pac-ai-mark.svg'
 import { CONTACT_EMAIL, CTA, INSTAGRAM, YEAR } from './content'
 import { PAGES, linkHandler, type PagePath } from './routes'
 
@@ -66,7 +67,7 @@ export function Header({
   return (
     <header className="hdr" data-hidden={hidden || undefined} data-solid={solid || undefined}>
       <NavLink to="/" onNavigate={onNavigate} className="hdr__brand" data-magnetic="0.25" aria-current={current === '/' ? 'page' : undefined}>
-        <span className="hdr__mark" aria-hidden="true" />
+        <img className="hdr__mark" src={markUrl} alt="" width="36" height="36" />
         Pac AI
       </NavLink>
       <nav className="hdr__nav" aria-label="Main">
@@ -117,10 +118,10 @@ export function Finale({ onNavigate }: { onNavigate: Navigate }) {
           <span className="eyebrow__dot" /> Next step
         </p>
         <h2 id="finale-title" className="finale__title">
-          <span className="finale__line" data-split>
+          <span className="finale__line" data-pixel>
             {CTA.lines[0]}
           </span>
-          <span className="finale__line finale__line--accent" data-split>
+          <span className="finale__line finale__line--accent" data-pixel>
             {CTA.lines[1]}
           </span>
         </h2>
