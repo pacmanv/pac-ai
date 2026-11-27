@@ -22,7 +22,7 @@ export const HERO = {
   secondary: 'Start a project',
 }
 
-export const MARQUEE = ['AI web apps', 'Games', 'Interactive tools', 'Prototypes', 'Claude-powered', 'Shipped fast']
+export const MARQUEE = ['AI web apps', 'Games', 'Interactive tools', 'Prototypes', 'Shipped fast']
 
 export const STATEMENT =
   'Every project starts as a picture of what it could be. Then it gets built quickly, carefully, and with a little bit of magic, until the picture is real.'
