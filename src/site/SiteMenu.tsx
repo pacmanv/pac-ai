@@ -1,4 +1,6 @@
 import { useEffect, useRef, type CSSProperties, type RefObject } from 'react'
+import { lockScroll } from '../fx/motion'
+import { CONTACT_EMAIL, INSTAGRAM } from './content'
 import { PAGES, linkHandler, type PagePath } from './routes'
 
 interface SiteMenuProps {
@@ -6,13 +8,14 @@ interface SiteMenuProps {
   current: PagePath
   onClose: () => void
   onNavigate: (to: PagePath) => void
-  /** the ⋯ button that opened the menu; focus goes back to it on close */
+  /** the button that opened the menu; focus goes back to it on close */
   returnFocusRef: RefObject<HTMLButtonElement | null>
 }
 
 const FOCUSABLE = 'a[href], button:not([disabled])'
+const ITEMS: { path: PagePath; title: string }[] = [{ path: '/', title: 'Home' }, ...PAGES]
 
-/** Full-screen frosted-glass menu: the three pages, large. */
+/** Full-screen menu: the pages, very large, rising in one after another. */
 export function SiteMenu({ isOpen, current, onClose, onNavigate, returnFocusRef }: SiteMenuProps) {
   const rootRef = useRef<HTMLDivElement>(null)
   const closeRef = useRef<HTMLButtonElement>(null)
@@ -22,6 +25,7 @@ export function SiteMenu({ isOpen, current, onClose, onNavigate, returnFocusRef 
     const root = rootRef.current
     closeRef.current?.focus({ preventScroll: true })
     document.documentElement.classList.add('is-menu-open')
+    lockScroll(true)
 
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
@@ -47,6 +51,7 @@ export function SiteMenu({ isOpen, current, onClose, onNavigate, returnFocusRef 
     return () => {
       document.removeEventListener('keydown', onKey)
       document.documentElement.classList.remove('is-menu-open')
+      lockScroll(false)
       returnFocusRef.current?.focus({ preventScroll: true })
     }
   }, [isOpen, onClose, returnFocusRef])
@@ -55,7 +60,7 @@ export function SiteMenu({ isOpen, current, onClose, onNavigate, returnFocusRef 
     <div
       id="site-menu"
       ref={rootRef}
-      className="site-menu"
+      className="menu"
       data-open={isOpen || undefined}
       role="dialog"
       aria-modal="true"
@@ -63,40 +68,40 @@ export function SiteMenu({ isOpen, current, onClose, onNavigate, returnFocusRef 
       inert={!isOpen}
       data-lenis-prevent
     >
-      <div className="site-menu__glass" aria-hidden="true" />
-
-      <div className="cd-top site-menu__top">
-        <a className="cd-top__brand site-menu__brand" href="/" onClick={linkHandler('/', onNavigate)}>
-          <em>Pac Ai</em>
-        </a>
-        <button ref={closeRef} type="button" className="site-menu-btn is-close" aria-label="Close menu" onClick={onClose}>
-          <i />
+      <div className="menu__top">
+        <span className="menu__brand">Pac AI</span>
+        <button ref={closeRef} type="button" className="menu-btn is-close" aria-label="Close menu" onClick={onClose}>
           <i />
           <i />
         </button>
       </div>
 
-      <nav className="site-menu__nav" aria-label="Pages">
+      <nav className="menu__nav" aria-label="Pages">
         <ol>
-          {PAGES.map((page, i) => (
-            <li key={page.path} className="site-menu__item" style={{ '--i': i } as CSSProperties}>
+          {ITEMS.map((item, i) => (
+            <li key={item.path} className="menu__item" style={{ '--i': i } as CSSProperties}>
               <a
-                href={page.path}
-                aria-current={current === page.path ? 'page' : undefined}
-                onClick={linkHandler(page.path, onNavigate)}
+                href={item.path}
+                aria-current={current === item.path ? 'page' : undefined}
+                onClick={linkHandler(item.path, onNavigate)}
               >
-                <span className="site-menu__num">{String(page.index).padStart(2, '0')}</span>
-                <span className="site-menu__mask">
-                  <span className="site-menu__label">{page.title}</span>
+                <span className="menu__num">{String(i).padStart(2, '0')}</span>
+                <span className="menu__mask">
+                  <span className="menu__label">{item.title}</span>
                 </span>
-                <span className="site-menu__go" aria-hidden="true">→</span>
               </a>
             </li>
           ))}
         </ol>
       </nav>
 
-      <p className="site-menu__foot">Pac Ai — envision and build.</p>
+      <div className="menu__foot">
+        <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>
+        <a href={INSTAGRAM.url} target="_blank" rel="noopener noreferrer">
+          Instagram {INSTAGRAM.handle}
+          <span className="sr-only"> (opens in a new tab)</span>
+        </a>
+      </div>
     </div>
   )
 }

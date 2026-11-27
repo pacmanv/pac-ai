@@ -1,6 +1,6 @@
 import type { MouseEvent } from 'react'
 
-/** The site's pages. The landing page is '/', the rest are glass panes. */
+/** The site's pages. The landing page is '/'. */
 export type PagePath = '/' | '/portfolio' | '/about' | '/contact'
 
 export interface PageInfo {
@@ -10,12 +10,12 @@ export interface PageInfo {
 }
 
 export const PAGES: readonly PageInfo[] = [
-  { path: '/portfolio', title: 'Portfolio', index: 1 },
+  { path: '/portfolio', title: 'Work', index: 1 },
   { path: '/about', title: 'About', index: 2 },
   { path: '/contact', title: 'Contact', index: 3 },
 ]
 
-const HOME_TITLE = 'Pac Ai — Envision and Build'
+const HOME_TITLE = 'Pac AI | You Envision, We Build'
 
 /** Map any pathname onto a known page; unknown paths fall back to the landing page. */
 export function toPagePath(pathname: string): PagePath {
@@ -31,19 +31,11 @@ export function pageFor(path: PagePath): PageInfo | undefined {
 
 export function titleFor(path: PagePath): string {
   const page = pageFor(path)
-  return page ? `${page.title} — Pac Ai` : HOME_TITLE
-}
-
-/** Where the "next" link on a page leads: on through the pages, then back to the glass. */
-export function nextAfter(page: PageInfo): { path: PagePath; label: string; arrow: string } {
-  const next = PAGES[PAGES.indexOf(page) + 1]
-  return next
-    ? { path: next.path, label: `Next — ${next.title}`, arrow: '→' }
-    : { path: '/', label: 'Back to the glass', arrow: '↑' }
+  return page ? `${page.title} | Pac AI` : HOME_TITLE
 }
 
 /**
- * Click handler for an in-site <a href>: plain left clicks run the glass
+ * Click handler for an in-site <a href>: plain left clicks run the page
  * transition; modified clicks (new tab, new window) keep the browser default.
  */
 export function linkHandler(to: PagePath, onNavigate: (to: PagePath) => void) {
