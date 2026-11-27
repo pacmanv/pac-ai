@@ -1,6 +1,6 @@
-# Pac Ai — envision and build
+# Pac AI: you envision, we build
 
-Portfolio site for Pac Ai, live at **https://pac-ai-phi.vercel.app**.
+Portfolio site for Pac AI, live at **https://pac-ai-phi.vercel.app**.
 
 A dark, cinematic studio site. A live WebGL ink field flows behind every page and swirls around the
 pointer; headlines rise in character by character; the home page runs a pinned horizontal showcase where the

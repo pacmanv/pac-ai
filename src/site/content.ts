@@ -17,7 +17,7 @@ export const HERO = {
   eyebrow: 'Independent AI studio',
   lines: ['You envision.', 'We build.'],
   intro:
-    'Pac Ai turns half-formed ideas into AI-powered apps, games and tools that people actually love to use.',
+    'Pac AI turns half-formed ideas into AI-powered apps, games and tools that people actually love to use.',
   primary: 'See the work',
   secondary: 'Start a project',
 }

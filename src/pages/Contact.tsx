@@ -73,7 +73,7 @@ export default function Contact({ reduced, delay }: { reduced: boolean; delay: n
       </section>
 
       <footer className="ftr ftr--slim">
-        <p className="ftr__meta">© {YEAR} Pac Ai. You envision, we build.</p>
+        <p className="ftr__meta">© {YEAR} Pac AI. You envision, we build.</p>
       </footer>
     </main>
   )

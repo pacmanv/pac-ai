@@ -69,7 +69,7 @@ export function SiteMenu({ isOpen, current, onClose, onNavigate, returnFocusRef 
       data-lenis-prevent
     >
       <div className="menu__top">
-        <span className="menu__brand">Pac Ai</span>
+        <span className="menu__brand">Pac AI</span>
         <button ref={closeRef} type="button" className="menu-btn is-close" aria-label="Close menu" onClick={onClose}>
           <i />
           <i />

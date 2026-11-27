@@ -67,7 +67,7 @@ export function Header({
     <header className="hdr" data-hidden={hidden || undefined} data-solid={solid || undefined}>
       <NavLink to="/" onNavigate={onNavigate} className="hdr__brand" data-magnetic="0.25" aria-current={current === '/' ? 'page' : undefined}>
         <span className="hdr__mark" aria-hidden="true" />
-        Pac Ai
+        Pac AI
       </NavLink>
       <nav className="hdr__nav" aria-label="Main">
         {PAGES.map((p) => (
@@ -135,7 +135,7 @@ export function Finale({ onNavigate }: { onNavigate: Navigate }) {
       </section>
 
       <footer className="ftr">
-        <p className="ftr__brand">Pac Ai</p>
+        <p className="ftr__brand">Pac AI</p>
         <nav className="ftr__nav" aria-label="Footer">
           <NavLink to="/" onNavigate={onNavigate}>
             <Roll>Home</Roll>
@@ -153,7 +153,7 @@ export function Finale({ onNavigate }: { onNavigate: Navigate }) {
             <Roll>{CONTACT_EMAIL}</Roll>
           </a>
         </nav>
-        <p className="ftr__meta">© {YEAR} Pac Ai. You envision, we build.</p>
+        <p className="ftr__meta">© {YEAR} Pac AI. You envision, we build.</p>
         <button type="button" className="ftr__top" onClick={() => (fx.lenis ? fx.lenis.scrollTo(0) : window.scrollTo({ top: 0 }))}>
           <Roll>Back to top ↑</Roll>
         </button>

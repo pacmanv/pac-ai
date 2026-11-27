@@ -216,7 +216,7 @@ export default function Home({ onNavigate, reduced, introDelay }: PageProps) {
         </div>
       </section>
 
-      <section className="marquee" aria-label="What Pac Ai makes">
+      <section className="marquee" aria-label="What Pac AI makes">
         {[0, 1].map((r) => (
           <div key={r} className={`marquee__band${r ? ' marquee__band--alt' : ''}`} aria-hidden={r ? true : undefined}>
             <div className="marquee__row">

@@ -213,7 +213,7 @@ export default function App() {
           </span>{' '}
           <span className="loader__mask">
             <span>
-              <em>Ai</em>
+              <em>AI</em>
             </span>
           </span>
         </p>
