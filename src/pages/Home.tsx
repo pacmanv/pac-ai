@@ -170,8 +170,8 @@ export default function Home({ onNavigate, reduced, introDelay }: PageProps) {
     introDelay,
   )
 
-  const scrollToWork = () => {
-    const el = document.getElementById('work')
+  const scrollToProjects = () => {
+    const el = document.getElementById('projects')
     if (!el) return
     if (fx.lenis) fx.lenis.scrollTo(el, { duration: 1.6 })
     else el.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth' })
@@ -197,14 +197,16 @@ export default function Home({ onNavigate, reduced, introDelay }: PageProps) {
               {HERO.intro}
             </p>
             <div className="hero__actions" data-hero>
-              <button type="button" className="btn btn--accent" data-magnetic="0.3" onClick={scrollToWork}>
+              <NavLink to="/contact" onNavigate={onNavigate} className="btn btn--cta" data-magnetic="0.3">
                 <Roll>{HERO.primary}</Roll>
+                <span className="btn__arrow" aria-hidden="true">
+                  →
+                </span>
+              </NavLink>
+              <button type="button" className="btn btn--ghost" data-magnetic="0.3" onClick={scrollToProjects}>
+                <Roll>{HERO.secondary}</Roll>
                 <span aria-hidden="true">↓</span>
               </button>
-              <NavLink to="/contact" onNavigate={onNavigate} className="btn btn--ghost" data-magnetic="0.3">
-                <Roll>{HERO.secondary}</Roll>
-                <span aria-hidden="true">→</span>
-              </NavLink>
             </div>
           </div>
         </div>
@@ -245,10 +247,10 @@ export default function Home({ onNavigate, reduced, introDelay }: PageProps) {
         </p>
       </section>
 
-      <section id="work" className="work" aria-labelledby="work-title">
+      <section id="projects" className="work" aria-labelledby="work-title">
         <div className="work__head">
           <p className="eyebrow">
-            <span className="eyebrow__dot" /> Selected work
+            <span className="eyebrow__dot" /> Projects
           </p>
           <h2 id="work-title" className="work__title">
             Things that <em>shipped.</em>
@@ -264,7 +266,7 @@ export default function Home({ onNavigate, reduced, introDelay }: PageProps) {
           <li className="wcard wcard--more">
             <NavLink to="/portfolio" onNavigate={onNavigate} className="wcard__inner wcard__more" data-cursor="All">
               <span className="wcard__more-label">
-                All work <span aria-hidden="true">→</span>
+                All projects <span aria-hidden="true">→</span>
               </span>
               <span className="wcard__more-sub">Case notes, links and the playable game</span>
             </NavLink>
@@ -278,7 +280,7 @@ export default function Home({ onNavigate, reduced, introDelay }: PageProps) {
         </p>
         <div className="process__head">
           <p className="eyebrow" data-reveal>
-            <span className="eyebrow__dot" /> How it works
+            <span className="eyebrow__dot" /> The process
           </p>
           <h2 id="process-title" className="section-title" data-split>
             From a spark to something real.
@@ -328,6 +330,7 @@ function WorkCard({ project, index }: { project: Project; index: number }) {
           <div>
             <p className="wcard__kind">{project.kind}</p>
             <h3 className="wcard__title">{project.title}</h3>
+            <p className="wcard__summary">{project.short}</p>
           </div>
           <span className="wcard__go" aria-hidden="true">
             {external ? '↗' : '→'}

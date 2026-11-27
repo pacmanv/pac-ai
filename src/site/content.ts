@@ -18,8 +18,9 @@ export const HERO = {
   lines: ['Imagine more.', 'Build smarter.'],
   intro:
     'Pac AI turns half-formed ideas into customized AI-powered apps, tools, and games that people actually love to use.',
-  primary: 'See the work',
-  secondary: 'Start a project',
+  /** the main call to action */
+  primary: 'Start a project',
+  secondary: 'Explore projects',
 }
 
 export const MARQUEE = ['AI web apps', 'Games', 'Interactive tools', 'Prototypes', 'Shipped fast']
@@ -34,7 +35,7 @@ export const PROCESS = [
   },
   {
     title: 'Prototype',
-    body: 'A working version in days, not months, so you can click it, feel it and change your mind early and cheaply.',
+    body: 'A real, clickable version in days, not months, so you can try it, feel it and change your mind early and cheaply.',
   },
   {
     title: 'Build & ship',

@@ -10,7 +10,7 @@ export interface PageInfo {
 }
 
 export const PAGES: readonly PageInfo[] = [
-  { path: '/portfolio', title: 'Work', index: 1 },
+  { path: '/portfolio', title: 'Projects', index: 1 },
   { path: '/about', title: 'About', index: 2 },
   { path: '/contact', title: 'Contact', index: 3 },
 ]

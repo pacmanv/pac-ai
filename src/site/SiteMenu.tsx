@@ -99,6 +99,13 @@ export function SiteMenu({ isOpen, current, onClose, onNavigate, returnFocusRef 
         </ol>
       </nav>
 
+      <a className="btn btn--cta btn--large menu__cta" href="/contact" onClick={linkHandler('/contact', onNavigate)}>
+        Start a project
+        <span className="btn__arrow" aria-hidden="true">
+          →
+        </span>
+      </a>
+
       <div className="menu__foot">
         <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>
         <a href={INSTAGRAM.url} target="_blank" rel="noopener noreferrer">

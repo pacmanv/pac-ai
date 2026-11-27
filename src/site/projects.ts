@@ -8,6 +8,9 @@ export interface Project {
   title: string
   /** short label above the title, e.g. "AI web app" */
   kind: string
+  /** one line for the home page cards */
+  short: string
+  /** a few sentences for the Projects page */
   summary: string
   tags: readonly string[]
   image: string
@@ -31,8 +34,9 @@ export const PROJECTS: readonly Project[] = [
     id: 'dads-story-lab',
     title: "Dad's Story Lab",
     kind: 'AI web app',
+    short: 'Kids pick the hero and the world, and AI writes a cozy bedtime story to read aloud.',
     summary:
-      'A bedtime story maker. Kids pick the characters, the world and the adventure, and AI writes a cozy story to read aloud tonight.',
+      'A bedtime story maker built for reading together. Kids choose their hero, from foxes and pandas to dinosaurs, then pick a world and an adventure, and AI writes a cozy story sized for tonight: a quick tale, a classic story or a longer adventure. Every story is new, gentle and ready to read aloud.',
     tags: ['AI stories', 'Animals & dinos', 'Read aloud'],
     image: dadsStoryLab,
     imageAlt:
@@ -45,8 +49,9 @@ export const PROJECTS: readonly Project[] = [
     id: 'feeling-wheel-for-men',
     title: 'The Feeling Wheel for Men',
     kind: 'Web app · Emotional literacy',
+    short: 'A guided wheel that turns a vague mood into the right word for it.',
     summary:
-      "Something's going on and you can't name it. Six feelings in, seventy-two out: a guided wheel that narrows a vague mood down to the right word.",
+      "Something's going on and you can't name it. The Feeling Wheel for Men starts with six core feelings and narrows them down to seventy-two precise words, asking a few guided questions along the way to help you land on the one that fits. A simple, practical way to build emotional literacy, one feeling at a time.",
     tags: ['Emotional literacy', 'Guided questions', 'Interactive wheel'],
     image: feelingWheel,
     imageAlt:
@@ -59,8 +64,9 @@ export const PROJECTS: readonly Project[] = [
     id: 'kaiju-stomp',
     title: 'Kaiju Stomp',
     kind: 'Game · HTML5 Canvas',
+    short: 'An 8-bit arcade rampage: flatten the city and survive two boss fights.',
     summary:
-      'A single-file 8-bit arcade game. Pick a kaiju, flatten a pixel city block by block, dodge the military and survive two boss fights.',
+      'A single-file 8-bit arcade game written in plain JavaScript. Pick your kaiju, flatten a pixel city block by block, dodge the military as it fights back, and survive two boss fights. The sprites, the city and the sound are all made in code with Canvas 2D and Web Audio, and it plays right in the browser.',
     tags: ['Vanilla JS', 'Canvas 2D', 'Web Audio'],
     image: kaijuStomp,
     imageAlt: 'Kaiju Stomp: pixel-art monsters rampaging through a night-time city skyline under a full moon.',
@@ -76,8 +82,9 @@ export const PROJECTS: readonly Project[] = [
     id: 'roast-my-bmw',
     title: 'Roast My BMW',
     kind: 'AI web app · 2026',
+    short: 'Upload a BMW and a panel of AI stewards hands down the verdict.',
     summary:
-      'Upload a BMW and the AI stewards file the charges: a mock verdict on every chrome grille, fake badge and oversized exhaust tip.',
+      'Upload a photo of a BMW and a panel of AI stewards reviews the evidence, then files the charges: chrome grilles, fake badges, oversized exhaust tips and more, each with a mock verdict. It runs on AI vision behind a serverless API and is designed mobile-first, so you can roast a car the moment you spot it.',
     tags: ['Claude Vision', 'Serverless API', 'Mobile-first'],
     image: roastMyBmw,
     imageAlt:

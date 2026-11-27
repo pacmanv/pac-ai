@@ -5,7 +5,7 @@ import { ShaderField } from './fx/ShaderField'
 import { fontsReady, fx, lockScroll, scrollToTop, startSmoothScroll } from './fx/motion'
 import { createPixelText, type PixelText } from './fx/pixelText'
 import Home from './pages/Home'
-import Work from './pages/Work'
+import Projects from './pages/Projects'
 import About from './pages/About'
 import Contact from './pages/Contact'
 import { Header, MenuButton, NAVIGATE_EVENT, ScrollProgress } from './site/Chrome'
@@ -18,7 +18,7 @@ const INTRO = 2.6
 /** seconds after a page swap before its entrance plays (the wipe is lifting) */
 const ENTER = 1.05
 
-const LABELS: Record<PagePath, string> = { '/': 'Home', '/portfolio': 'Work', '/about': 'About', '/contact': 'Contact' }
+const LABELS: Record<PagePath, string> = { '/': 'Home', '/portfolio': 'Projects', '/about': 'About', '/contact': 'Contact' }
 
 /**
  * The site shell: a tiny history router over four pages, the WebGL backdrop,
@@ -226,7 +226,7 @@ export default function App() {
       />
 
       {path === '/' && <Home key="/" onNavigate={navigate} reduced={reduced} introDelay={delay} />}
-      {path === '/portfolio' && <Work key="/portfolio" onNavigate={navigate} {...pageProps} />}
+      {path === '/portfolio' && <Projects key="/portfolio" onNavigate={navigate} {...pageProps} />}
       {path === '/about' && <About key="/about" onNavigate={navigate} {...pageProps} />}
       {path === '/contact' && <Contact key="/contact" {...pageProps} />}
 

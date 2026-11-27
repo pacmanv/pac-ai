@@ -10,7 +10,7 @@ function hostOf(url: string): string {
 }
 
 /** The full portfolio: one large, alternating row per project. */
-export default function Work({ onNavigate, reduced, delay }: { onNavigate: (to: PagePath) => void; reduced: boolean; delay: number }) {
+export default function Projects({ onNavigate, reduced, delay }: { onNavigate: (to: PagePath) => void; reduced: boolean; delay: number }) {
   const rootRef = useRef<HTMLElement>(null)
 
   usePageFx(
@@ -43,14 +43,14 @@ export default function Work({ onNavigate, reduced, delay }: { onNavigate: (to: 
     <main ref={rootRef} id="main" className="page page--inner">
       <header className="phead">
         <p className="eyebrow" data-reveal>
-          <span className="eyebrow__dot" /> Work · {String(PROJECTS.length).padStart(2, '0')} projects
+          <span className="eyebrow__dot" /> Projects · {String(PROJECTS.length).padStart(2, '0')}
         </p>
         <h1 className="phead__title">
           <span className="phead__line" data-pixel="now">
-            Selected
+            Featured
           </span>
           <span className="phead__line phead__line--accent" data-pixel="now">
-            work.
+            projects.
           </span>
         </h1>
         <p className="phead__lead" data-reveal>
