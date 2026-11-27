@@ -14,7 +14,7 @@ export const INSTAGRAM = { handle: '@pacmanv', url: 'https://www.instagram.com/p
 export const YEAR = new Date().getFullYear()
 
 export const HERO = {
-  eyebrow: 'Independent AI studio',
+  eyebrow: 'Independent AI garage',
   lines: ['Imagine more.', 'Build smarter.'],
   intro:
     'Pac AI turns half-formed ideas into customized AI-powered apps, tools, and games that people actually love to use.',
@@ -54,11 +54,11 @@ export const ABOUT = {
     'I’ve spent nearly two decades in technology, building data platforms, solving complex problems, and helping organizations turn information into solutions. Now, I’m bringing that experience into something of my own.',
   body: [
     'That’s where **Pac AI** comes in.',
-    'I’m a data engineer by trade, a proud single dad, and a creative at heart. I use AI to turn ideas into real products, from websites and web apps to automations and digital tools that make life easier.',
+    'I’m a cloud engineer by trade, a proud dad, and a creative at heart. I use AI to turn ideas into real products, from websites and web apps to automations and digital tools that make life easier.',
     'Pac AI is about exploring what’s possible, creating something cool with purpose, and helping others bring their ideas to life.',
   ],
   /** shown beside the story */
-  roles: ['Data engineer', 'Creative', 'Single dad', 'Builder'],
+  roles: ['Cloud engineer', 'Creative', 'Dad', 'Builder'],
   tagline: ['Imagine more.', 'Build smarter.'],
 }
 
