@@ -220,7 +220,7 @@ export default function Home({ onNavigate, reduced, introDelay }: PageProps) {
         {[0, 1].map((r) => (
           <div key={r} className={`marquee__band${r ? ' marquee__band--alt' : ''}`} aria-hidden={r ? true : undefined}>
             <div className="marquee__row">
-              {[0, 1].map((copy) =>
+              {[0, 1, 2, 3].map((copy) =>
                 MARQUEE.map((item) => (
                   <span key={`${copy}-${item}`} className="marquee__item" aria-hidden={copy ? true : undefined}>
                     {item}
