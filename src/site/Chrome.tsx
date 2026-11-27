@@ -127,8 +127,11 @@ export function Header({
           </NavLink>
         ))}
       </nav>
-      <NavLink to="/contact" onNavigate={onNavigate} className="btn btn--small hdr__cta" data-magnetic="0.3">
+      <NavLink to="/contact" onNavigate={onNavigate} className="btn btn--small btn--cta hdr__cta" data-magnetic="0.3">
         <Roll>Start a project</Roll>
+        <span className="btn__arrow" aria-hidden="true">
+          →
+        </span>
       </NavLink>
       {menuButton}
     </header>
