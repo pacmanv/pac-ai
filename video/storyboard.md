@@ -18,10 +18,13 @@
 
 ## Files
 
-- `launch.html` — the whole film: plays live in a browser (click for sound); every frame is a pure function of time
+- `film.js` — the whole film (scenes, effects, timing), shared by both formats; every frame is a pure function of time
+- `launch.html` — 16:9 (1920×1080) shell: plays live in a browser (click for sound)
+- `launch-vertical.html` — 9:16 (1080×1920) shell for TikTok, Reels and Shorts; same timing and score, layouts restacked and kept clear of TikTok's top bar, caption area and right-hand action buttons
 - `score.js` — the soundtrack (Web Audio), written to the same beat grid
-- `render.mjs` — renders `launch.html` to MP4 with the score muxed in: `node render.mjs launch.html out/pac-ai-launch.mp4`
+- `render.mjs` — renders a shell to MP4 with the score muxed in: `node render.mjs launch.html out/pac-ai-launch.mp4` or `node render.mjs launch-vertical.html out/pac-ai-launch-vertical.mp4`
 - `sync-check.mjs` — checks every cut lands on a beat: `node sync-check.mjs out/pac-ai-launch.mp4 --cues-file out/pac-ai-launch.cues.json`
 - `assets/` — the site's fonts, project screenshots and glass tile (`images.js` holds the images as data URIs)
 - `out/pac-ai-launch.mp4` — the rendered film; `out/pac-ai-launch-poster.jpg` — poster frame
-- `out/pac-ai-launch-no-music.mp4` — the same film with no audio, for adding a licensed song inside TikTok, Instagram or an editor
+- `out/pac-ai-launch-vertical.mp4` — the 9:16 film; `out/pac-ai-launch-vertical-poster.jpg` — its poster frame
+- `out/pac-ai-launch-no-music.mp4`, `out/pac-ai-launch-vertical-no-music.mp4` — the same films with no audio, for adding a licensed song inside TikTok, Instagram or an editor
