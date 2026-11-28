@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pac AI Launch Film (Instagram 4:5)</title>
+<style>
+  @font-face { font-family: 'InterV'; src: url(assets/inter-latin-wght-normal.woff2) format('woff2'); font-weight: 100 900; }
+  @font-face { font-family: 'SerifI'; src: url(assets/instrument-serif-latin-400-italic.woff2) format('woff2'); font-style: italic; font-weight: 400; }
+  @font-face { font-family: 'MonoP'; src: url(assets/ibm-plex-mono-latin-500-normal.woff2) format('woff2'); font-weight: 500; }
+  html, body { margin: 0; background: #050608; height: 100%; }
+  body { display: grid; place-items: center; overflow: hidden; color: #eeede8; font: 14px/1.4 MonoP, monospace; }
+  canvas { height: min(100vh, 125vw); width: auto; display: block; cursor: pointer; }
+  #hint { position: fixed; bottom: 12px; left: 0; right: 0; text-align: center; opacity: .55; letter-spacing: .12em; text-transform: uppercase; font-size: 11px; }
+  .preload { position: absolute; width: 1px; height: 1px; overflow: hidden; opacity: 0; pointer-events: none; }
+</style>
+</head>
+<body>
+<script>window.FORMAT = 'portrait';</script>
+<canvas id="c" width="1080" height="1350"></canvas>
+<script src="assets/images.js"></script>
+<div id="hint">Click to play with sound</div>
+<div class="preload" aria-hidden="true">
+  <img id="img-story">
+  <img id="img-wheel">
+  <img id="img-kaiju">
+  <img id="img-bmw">
+  <img id="img-mark">
+  <script>for (const [id, src] of Object.entries(window.ASSET_IMAGES)) document.getElementById(id).src = src;</script>
+  <span style="font-family:InterV;font-weight:700">a</span><span style="font-family:SerifI;font-style:italic">a</span><span style="font-family:MonoP">a</span>
+</div>
+<script src="film.js"></script>
+<script src="score.js"></script>
+<script>
+/* ---- ready + live preview ---- */
+(async () => {
+  await document.fonts.load(SANS(100)); await document.fonts.load(SERIF(100)); await document.fonts.load(MONO(20)); await document.fonts.ready;
+  await Promise.all([...document.images].map(i => i.decode().catch(() => {})));
+  window.__ready = true;
+  if (location.search.includes('render')) { draw(0); return; }
+  let start = null, ac = null;
+  const loop = now => { if (start === null) start = now; const t = ((now - start) / 1000) % DUR; draw(Math.floor(t * FPS)); requestAnimationFrame(loop); };
+  draw(0);
+  cv.addEventListener('click', async () => {
+    document.getElementById('hint').remove();
+    ac = new AudioContext(); const off = new OfflineAudioContext(2, ac.sampleRate * DUR, ac.sampleRate); window.SCORE(off);
+    const buf = await off.startRendering(), src = ac.createBufferSource(); src.buffer = buf; src.loop = true; src.connect(ac.destination);
+    src.start(); start = null; requestAnimationFrame(n => { start = n; requestAnimationFrame(loop); });
+  }, { once: true });
+})();
+</script>
+</body>
+</html>

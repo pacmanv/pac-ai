@@ -3,8 +3,9 @@
    Every frame is a pure function of time. Picture and score both read the
    beat grid below, so every cut and hit lands on the music by construction.
    ========================================================================== */
-const V = window.FORMAT === 'vertical';                     // 9:16 for TikTok / Reels / Shorts
-const W = V ? 1080 : 1920, H = V ? 1920 : 1080, FPS = 30, DUR = 24, FRAMES = DUR * FPS;
+// formats: 'wide' 16:9 (default) · 'vertical' 9:16 (TikTok, Reels, Shorts) · 'portrait' 4:5 (Instagram feed)
+const FMT = window.FORMAT || 'wide', P = FMT === 'portrait', V = FMT === 'vertical' || P;  // V = narrow, stacked layouts
+const W = V ? 1080 : 1920, H = P ? 1350 : V ? 1920 : 1080, FPS = 30, DUR = 24, FRAMES = DUR * FPS;
 const BPM = 120, BEAT = 60 / BPM, BAR = BEAT * 4;           // 0.5 s beats, 2 s bars, 12 bars
 const bt = n => n * BEAT;                                    // n-th beat in seconds
 const DROP = 8.0;                                            // bar 5 downbeat: the brand reveal
@@ -63,7 +64,7 @@ const IMG = id => document.getElementById(id);
 
 /* ---------------------------------------------------- ink field (WebGL) */
 // The website's backdrop shader, driven by time and the kick envelope instead of the pointer.
-const FW = V ? 360 : 640, FH = V ? 640 : 360, gcv = mk(FW, FH);
+const FW = V ? 360 : 640, FH = P ? 450 : V ? 640 : 360, gcv = mk(FW, FH);
 const gl = gcv.getContext('webgl', { preserveDrawingBuffer: true, antialias: false });
 let U = {};
 if (gl) {
@@ -351,11 +352,12 @@ function sceneImagine(t, l) {
   const suck = eInExpo(seg(l, 3.5, 3.75)), z = (1 + l * .015) * (1 - suck * .55);
   ctx.save(); ctx.translate(W / 2, H / 2); ctx.scale(z, z); ctx.translate(-W / 2, -H / 2); ctx.globalAlpha = 1 - suck;
   if (V) { // stacked: one word per line
-    eyebrow('PAC AI · 2026', 82, 600, l - .55);
-    pixelLine([{ t: 'Imagine', f: SANS(214), c: C.ink }], { x: 66, y: 830, t: l - .5, ls: -11, stagger: .032, seed: 3 });
-    pixelLine([{ t: 'more.', f: SANS(214), c: C.ink }], { x: 66, y: 1020, t: l - .72, ls: -11, stagger: .032, seed: 31 });
-    pixelLine([{ t: 'Build', f: SANS(214), c: C.ink }], { x: 66, y: 1240, t: l - 2.0, ls: -11, stagger: .032, seed: 4 });
-    pixelLine([{ t: 'smarter.', f: SERIF(250), c: C.lime }], { x: 56, y: 1450, t: l - 2.15, ls: -6, stagger: .032, seed: 41 });
+    const ys = P ? [250, 450, 625, 830, 1030] : [600, 830, 1020, 1240, 1450], fp = P ? 192 : 214;
+    eyebrow('PAC AI · 2026', 82, ys[0], l - .55);
+    pixelLine([{ t: 'Imagine', f: SANS(fp), c: C.ink }], { x: 66, y: ys[1], t: l - .5, ls: -11, stagger: .032, seed: 3 });
+    pixelLine([{ t: 'more.', f: SANS(fp), c: C.ink }], { x: 66, y: ys[2], t: l - .72, ls: -11, stagger: .032, seed: 31 });
+    pixelLine([{ t: 'Build', f: SANS(fp), c: C.ink }], { x: 66, y: ys[3], t: l - 2.0, ls: -11, stagger: .032, seed: 4 });
+    pixelLine([{ t: 'smarter.', f: SERIF(Math.round(fp * 1.17)), c: C.lime }], { x: 56, y: ys[4], t: l - 2.15, ls: -6, stagger: .032, seed: 41 });
   } else {
     eyebrow('PAC AI · 2026', 230, 300, l - .55);
     pixelLine([{ t: 'Imagine more.', f: SANS(214), c: C.ink }], { x: 220, y: 510, t: l - .5, ls: -11, stagger: .032, seed: 3 });
@@ -392,23 +394,23 @@ function sceneReveal(t, l) {
 
 // 10–18  PROJECTS: one bar each
 function sceneProject(t, l, i) {
-  const P = PROJECTS[i], side = P.side, e = kickEnv(t);
-  inkField(t, { energy: e * .8 + .1, mx: side > 0 ? .25 : .75, my: .5, tint: P.tint, tintAmt: .5, alpha: .9 });
+  const PJ = PROJECTS[i], side = PJ.side, e = kickEnv(t);
+  inkField(t, { energy: e * .8 + .1, mx: side > 0 ? .25 : .75, my: .5, tint: PJ.tint, tintAmt: .5, alpha: .9 });
   // ghost number drifting behind
   ctx.save(); ctx.font = SANS(560, 800); ctx.letterSpacing = '-30px'; ctx.fillStyle = 'rgba(255,255,255,.045)'; ctx.textBaseline = 'alphabetic';
   if (V) ctx.font = SANS(470, 800);
-  ctx.textAlign = side > 0 ? 'left' : 'right'; ctx.fillText('0' + (i + 1), side > 0 ? 40 - l * 30 : W - 40 + l * 30, V ? 1560 : H - 60); ctx.restore();
+  ctx.textAlign = side > 0 ? 'left' : 'right'; ctx.fillText('0' + (i + 1), side > 0 ? 40 - l * 30 : W - 40 + l * 30, P ? H - 50 : V ? 1560 : H - 60); ctx.restore();
   // card: swings in on the downbeat, punches on beat 3
-  const cw = V ? 880 : 1000, ch = cw * .625, cx = V ? W / 2 - 40 : side > 0 ? W - 120 - cw / 2 : 120 + cw / 2, cy = V ? 560 : H / 2 + 10;
+  const cw = P ? 780 : V ? 880 : 1000, ch = cw * .625, cx = P ? W / 2 : V ? W / 2 - 40 : side > 0 ? W - 120 - cw / 2 : 120 + cw / 2, cy = P ? 335 : V ? 560 : H / 2 + 10;
   const swing = eOutExpo(seg(l, 0, .5)), rot = side * (lerp(-1.0, -.26, swing) + l * .03);
   const punch = 1 + .045 * (l >= 1 ? Math.exp(-(l - 1) * 7) : 0);
   const slide = (1 - swing) * side * 500;
   let shx = 0, shy = 0;
-  if (P.pixel) for (let s = 0; s < 2; s += BEAT) if (l >= s) { const a = Math.exp(-(l - s) * 12) * 14; shy += Math.sin((l - s) * 70) * a; }
-  const card = cardCanvas(P.img, cw, ch, P.pixel);
-  card3D(card, cx + slide + shx, cy + shy, cw, ch, rot, punch * (P.pixel ? 1 : 1), clamp(swing * 3), P.tint);
+  if (PJ.pixel) for (let s = 0; s < 2; s += BEAT) if (l >= s) { const a = Math.exp(-(l - s) * 12) * 14; shy += Math.sin((l - s) * 70) * a; }
+  const card = cardCanvas(PJ.img, cw, ch, PJ.pixel);
+  card3D(card, cx + slide + shx, cy + shy, cw, ch, rot, punch * (PJ.pixel ? 1 : 1), clamp(swing * 3), PJ.tint);
   // Kaiju: pixel debris kicked up by each stomp
-  if (P.pixel) for (let s = 0; s < 2; s += BEAT) for (let k = 0; k < 6; k++) spray(cx - cw * .36 + hash(k, s * 10) * cw * .72, cy + ch / 2 - 30, 120, ['#ff4fa3', C.lime, '#4fd2ff'][k % 3], l - s, 900 + s * 100 + k, 2, 1.2);
+  if (PJ.pixel) for (let s = 0; s < 2; s += BEAT) for (let k = 0; k < 6; k++) spray(cx - cw * .36 + hash(k, s * 10) * cw * .72, cy + ch / 2 - 30, 120, ['#ff4fa3', C.lime, '#4fd2ff'][k % 3], l - s, 900 + s * 100 + k, 2, 1.2);
   // Roast My BMW: scanner sweep and detection boxes on the beats
   if (i === 3) {
     const sy = cy - ch / 2 + ((l * 1.1) % 1) * ch * .9 + 30;
@@ -424,18 +426,18 @@ function sceneProject(t, l, i) {
   // copy block
   const tx = V ? 76 : side > 0 ? 110 : W - 110 - 640, align = 'left';
   // vertical: copy sits under the card; wide: beside it
-  const Y = V ? { eb: 960, k1: 1115, k2: 1250, name: 1330, tags: 1400 } : { eb: 250, k1: 430, k2: 590, name: 690, tags: 790 };
-  const kp = V ? 128 : 150;
-  eyebrow(`0${i + 1} / 04 · ${P.kind}`, tx, Y.eb, l - .05, C.ink2, P.tint);
-  const k1 = [{ t: P.key[0], f: SANS(kp), c: C.ink }], k2 = [{ t: P.key[1], f: P.pixel ? SANS(Math.round(kp * 1.07), 800) : SERIF(Math.round(kp * 1.17)), c: C.lime }];
-  pixelLine(k1, { x: tx, y: Y.k1, align, t: l, ls: P.pixel ? 2 : -7, stagger: .03, dur: .45, hold: P.pixel ? 7 : 1, seed: 10 + i });
-  pixelLine(k2, { x: tx, y: Y.k2, align, t: l - .12, ls: P.pixel ? 2 : -4, stagger: .03, dur: .45, hold: P.pixel ? 7 : 1, seed: 20 + i });
+  const Y = P ? { eb: 670, k1: 800, k2: 920, name: 990, tags: 1050 } : V ? { eb: 960, k1: 1115, k2: 1250, name: 1330, tags: 1400 } : { eb: 250, k1: 430, k2: 590, name: 690, tags: 790 };
+  const kp = P ? 112 : V ? 128 : 150;
+  eyebrow(`0${i + 1} / 04 · ${PJ.kind}`, tx, Y.eb, l - .05, C.ink2, PJ.tint);
+  const k1 = [{ t: PJ.key[0], f: SANS(kp), c: C.ink }], k2 = [{ t: PJ.key[1], f: PJ.pixel ? SANS(Math.round(kp * 1.07), 800) : SERIF(Math.round(kp * 1.17)), c: C.lime }];
+  pixelLine(k1, { x: tx, y: Y.k1, align, t: l, ls: PJ.pixel ? 2 : -7, stagger: .03, dur: .45, hold: PJ.pixel ? 7 : 1, seed: 10 + i });
+  pixelLine(k2, { x: tx, y: Y.k2, align, t: l - .12, ls: PJ.pixel ? 2 : -4, stagger: .03, dur: .45, hold: PJ.pixel ? 7 : 1, seed: 20 + i });
   // project name slides up on beat 2
   const nk = eOutExpo(seg(l, .5, .85));
-  if (nk > 0) { ctx.save(); ctx.globalAlpha = nk; ctx.font = SANS(44, 600); ctx.letterSpacing = '-1px'; ctx.fillStyle = C.ink; ctx.fillText(P.name, tx, Y.name + (1 - nk) * 40);
-    ctx.fillStyle = P.tint; ctx.fillRect(tx, Y.name + 28 + (1 - nk) * 40, 90 * nk, 4); ctx.restore(); }
+  if (nk > 0) { ctx.save(); ctx.globalAlpha = nk; ctx.font = SANS(44, 600); ctx.letterSpacing = '-1px'; ctx.fillStyle = C.ink; ctx.fillText(PJ.name, tx, Y.name + (1 - nk) * 40);
+    ctx.fillStyle = PJ.tint; ctx.fillRect(tx, Y.name + 28 + (1 - nk) * 40, 90 * nk, 4); ctx.restore(); }
   // tags pop on the eighths after beat 3
-  let cx2 = tx; P.tags.forEach((tg, j) => { const w = chip(tg, cx2, Y.tags + (V ? 26 : 0), (l - 1 - j * .125) / .2, P.tint); if (w) cx2 += w + 14; });
+  let cx2 = tx; PJ.tags.forEach((tg, j) => { const w = chip(tg, cx2, Y.tags + (V ? 26 : 0), (l - 1 - j * .125) / .2, PJ.tint); if (w) cx2 += w + 14; });
 }
 
 // 18–20  RAPID FIRE: one offering per half beat, then the stutter
@@ -449,11 +451,11 @@ function sceneRapid(t, l) {
     const f = mk2(w0 > maxW ? Math.floor(base * maxW / w0) : base);
     const zoom = 1.12 - eOut3(clamp(wl / .25)) * .12;
     ctx.save(); ctx.translate(W / 2, H / 2); ctx.scale(zoom, zoom); ctx.translate(-W / 2, -H / 2);
-    pixelLine([{ t: word, f, c: col }], { x: V ? W / 2 - 40 : W / 2, y: H / 2 + 80, align: 'center', t: wl + .02, ls: style === 'serif' ? -4 : -12, stagger: .008, dur: .12, block: 40, rise: .05, spray: false, seed: 40 + idx });
+    pixelLine([{ t: word, f, c: col }], { x: FMT === 'vertical' ? W / 2 - 40 : W / 2, y: H / 2 + 80, align: 'center', t: wl + .02, ls: style === 'serif' ? -4 : -12, stagger: .008, dur: .12, block: 40, rise: .05, spray: false, seed: 40 + idx });
     ctx.restore();
-    ctx.save(); ctx.font = MONO(26); ctx.letterSpacing = '6px'; ctx.fillStyle = C.ink3; ctx.textAlign = 'center'; ctx.fillText(`0${idx + 1} / 06`, W / 2, V ? H / 2 + 330 : H - 150); ctx.restore();
+    ctx.save(); ctx.font = MONO(26); ctx.letterSpacing = '6px'; ctx.fillStyle = C.ink3; ctx.textAlign = 'center'; ctx.fillText(`0${idx + 1} / 06`, W / 2, P ? H / 2 + 280 : V ? H / 2 + 330 : H - 150); ctx.restore();
     // progress ticks
-    for (let j = 0; j < 6; j++) { ctx.fillStyle = j <= idx ? C.lime : 'rgba(255,255,255,.15)'; ctx.fillRect(W / 2 - 3 * 70 + j * 70, V ? H / 2 + 360 : H - 120, 56, 6); }
+    for (let j = 0; j < 6; j++) { ctx.fillStyle = j <= idx ? C.lime : 'rgba(255,255,255,.15)'; ctx.fillRect(W / 2 - 3 * 70 + j * 70, P ? H / 2 + 310 : V ? H / 2 + 360 : H - 120, 56, 6); }
   } else if (l < 1.75) {
     const wl = l - 1.5;
     if (V) {
@@ -470,14 +472,14 @@ function sceneEnd(t, l) {
   const push = 1 + l * .012;
   inkField(t, { energy: (t >= 20 ? Math.exp(-l * 3) * .8 : 0) + .25, mx: .5 + Math.sin(t * .4) * .1, my: .48, alpha: 1 });
   ctx.save(); ctx.translate(W / 2, H / 2); ctx.scale(push, push); ctx.translate(-W / 2, -H / 2);
-  const ringY = V ? H / 2 - 330 : H / 2 - 70;
+  const ringY = P ? H / 2 - 300 : V ? H / 2 - 330 : H / 2 - 70;
   for (let r = 0; r < 2; r++) ring(W / 2, ringY, 100 + eOut3(seg(l, r * .08, .9 + r * .08)) * 1100, 6 - r * 2, C.lime, (1 - seg(l, r * .08, .9 + r * .08)) * .6);
   // lockup: glass tile + wordmark
   const word = [{ t: 'Pac ', f: SANS(200), c: C.ink }, { t: 'AI', f: SERIF(226), c: C.lime }], ww = textW(word, -9);
   // wide: tile beside the wordmark; vertical: tile stacked above it
-  const tile = V ? 250 : 230, gap = 50, total = tile + gap + ww, cyL = V ? H / 2 - 40 : H / 2 - 70;
+  const tile = P ? 220 : V ? 250 : 230, gap = 50, total = tile + gap + ww, cyL = P ? H / 2 - 60 : V ? H / 2 - 40 : H / 2 - 70;
   const x0 = V ? W / 2 - ww / 2 - tile - gap : W / 2 - total / 2;
-  const tileX = V ? W / 2 : x0 + tile / 2, tileY = V ? H / 2 - 330 : cyL;
+  const tileX = V ? W / 2 : x0 + tile / 2, tileY = P ? H / 2 - 300 : V ? H / 2 - 330 : cyL;
   const tk = eOutBack(seg(l, 0, .45), 1.8), rot = (1 - eOut3(seg(l, 0, .5))) * -.35;
   ctx.save(); ctx.translate(tileX, tileY); ctx.rotate(rot); ctx.scale(tk, tk);
   ctx.shadowColor = 'rgba(200,255,61,.35)'; ctx.shadowBlur = 70; ctx.drawImage(IMG('img-mark'), -tile / 2 - tile * .09, -tile / 2 - tile * .09, tile * 1.18, tile * 1.18); ctx.restore();
@@ -490,7 +492,7 @@ function sceneEnd(t, l) {
   pixelLine([{ t: 'Imagine more. ', f: SANS(58, 600), c: C.ink2 }, { t: 'Build smarter.', f: SERIF(68), c: C.lime }], { x: W / 2, y: cyL + 230, align: 'center', t: l - .5, ls: -1, stagger: .018, dur: .4, block: 16, seed: 71 });
   // CTA pill on beat 3 (21.0): the site's primary button, glow and pulse ring
   if (l >= 1.0) {
-    const k = eOutBack(seg(l, 1.0, 1.3), 2.2), pw = 520, ph = 104, px = W / 2, py = cyL + (V ? 450 : 360);
+    const k = eOutBack(seg(l, 1.0, 1.3), 2.2), pw = 520, ph = 104, px = W / 2, py = cyL + (P ? 420 : V ? 450 : 360);
     const pulse = ((l - 1.0) % 1.4) / 1.4;
     ctx.save(); ctx.translate(px, py); ctx.scale(k, k);
     ctx.strokeStyle = `rgba(200,255,61,${(1 - pulse) * .6})`; ctx.lineWidth = 3; const g = 6 + pulse * 30;
@@ -503,7 +505,7 @@ function sceneEnd(t, l) {
     ctx.fillStyle = C.limeInk; ctx.font = SANS(50, 700); ctx.letterSpacing = '-1px'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('pacai.io  →', 0, 3);
     ctx.restore();
   }
-  if (l >= 1.25) eyebrow('NOW LIVE', W / 2, V ? H / 2 - 520 : cyL - 230, l - 1.25, C.ink2, C.lime, 'center');
+  if (l >= 1.25) eyebrow('NOW LIVE', W / 2, P ? H / 2 - 470 : V ? H / 2 - 520 : cyL - 230, l - 1.25, C.ink2, C.lime, 'center');
   ctx.restore();
 }
 
