@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import gsap from 'gsap'
+import { Analytics } from '@vercel/analytics/react'
 import { Cursor } from './fx/Cursor'
 import { ShaderField } from './fx/ShaderField'
 import { fontsReady, fx, lockScroll, scrollToTop, startSmoothScroll } from './fx/motion'
@@ -257,6 +258,7 @@ export default function App() {
       </div>
 
       <Cursor enabled={!reduced} />
+      <Analytics />
     </>
   )
 }
